@@ -3,348 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Můj Vibe Dashboard</title>
+    <title>Rodinný Nákupní Seznam</title>
     <style>
-        /* Definice barevných témat */
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-color: #f8fafc;
-            --accent-color: #38bdf8;
-            --success-color: #4ade80;
-            --input-bg: #0f172a;
-            --input-border: #475569;
-            --task-bg: #334155;
-        }
-
-        [data-theme="light"] {
             --bg-color: #f1f5f9;
             --card-bg: #ffffff;
-            --text-color: #0f172a;
-            --accent-color: #0284c7;
-            --success-color: #16a34a;
-            --input-bg: #f8fafc;
-            --input-border: #cbd5e1;
-            --task-bg: #e2e8f0;
+            --text-color: #1e293b;
+            --primary-color: #4f46e5;
+            --border-color: #cbd5e1;
+            --bought-color: #94a3b8;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: background-color 0.3s, color 0.3s;
         }
 
-        header {
-            margin-bottom: 30px;
-            text-align: center;
-            position: relative;
+        .app-container {
             width: 100%;
-            max-width: 1000px;
+            max-width: 480px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box; /* Zabrání přetékání boxu */
         }
 
         h1 {
-            color: var(--accent-color);
-            margin-bottom: 5px;
-        }
-
-        /* Přepínač témat */
-        .theme-toggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            border: 1px solid var(--input-border);
-            padding: 8px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            width: 100%;
-            max-width: 1000px;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.3s;
-        }
-
-        h2 {
+            text-align: center;
             margin-top: 0;
-            border-bottom: 2px solid var(--input-border);
-            padding-bottom: 10px;
+            color: var(--primary-color);
+            font-size: 1.8rem;
         }
 
-        /* To-Do List Styles */
-        .todo-input-group {
+        /* Nový responzivní formulář */
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .inputs-row {
             display: flex;
             gap: 10px;
+            width: 100%;
         }
 
-        input[type="text"] {
-            flex: 1;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid var(--input-border);
-            background-color: var(--input-bg);
-            color: var(--text-color);
+        input {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
         }
 
-        button {
-            background-color: var(--accent-color);
-            color: white;
+        #item-input {
+            flex: 2; /* Název zabere více místa */
+            min-width: 0; /* Oprava přetékání ve flexboxu */
+        }
+
+        /* Kontrolky pro množství (+ / -) */
+        .counter-group {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+
+        .counter-btn {
+            background: none;
             border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            padding: 0 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
             cursor: pointer;
+            color: var(--text-color);
+            height: 100%;
+        }
+
+        .counter-btn:hover {
+            background-color: #e2e8f0;
+        }
+
+        #count-input {
+            width: 45px;
+            text-align: center;
+            border: none;
+            background: transparent;
+            padding: 0;
             font-weight: bold;
         }
 
-        /* Oprava kontrastu textu na tlačítku v dark modu */
-        :root:not([data-theme="light"]) button {
-            color: #0f172a;
+        /* Odstranění šipek z číselného inputu */
+        #count-input::-webkit-outer-spin-button,
+        #count-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
-        button:hover {
+        button.add-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+
+        button.add-btn:hover {
             opacity: 0.9;
         }
 
-        ul {
+        /* Seznam položek */
+        .shopping-list {
             list-style: none;
             padding: 0;
-            margin-top: 15px;
+            margin: 0;
         }
 
-        li {
-            padding: 8px;
-            background: var(--task-bg);
-            margin-bottom: 5px;
-            border-radius: 4px;
+        .shopping-item {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
-        }
-
-        li span {
+            padding: 14px;
+            background: #f1f5f9;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
             cursor: pointer;
-            flex: 1;
         }
 
-        .completed {
-            text-decoration: line-through;
-            opacity: 0.5;
+        .shopping-item:hover {
+            background: #e2e8f0;
         }
 
-        /* Timer Styles */
-        .timer-display {
-            font-size: 3rem;
-            text-align: center;
-            margin: 20px 0;
-            font-family: monospace;
-        }
-
-        .timer-controls {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        /* Quote Styles */
-        .quote-box {
-            font-style: italic;
-            min-height: 60px;
+        .item-info {
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis; /* Dlouhý text zkrátí třemi tečkami */
+        }
+
+        .item-count {
+            background: #cbd5e1;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* Styl pro zakoupené položky */
+        .shopping-item.bought {
+            background: #f8fafc;
+            border: 1px dashed var(--border-color);
+            color: var(--bought-color);
+        }
+
+        .shopping-item.bought .item-name {
+            text-decoration: line-through;
+        }
+
+        .shopping-item.bought .item-count {
+            background: #e2e8f0;
+            color: var(--bought-color);
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px 8px;
+        }
+
+        .clear-container {
+            margin-top: 20px;
             text-align: center;
+        }
+
+        .clear-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Světlý režim</button>
-        <h1>Vibe Coding Dashboard 🚀</h1>
-        <p>Vaše první aplikace běžící plně v prohlížeči</p>
-    </header>
-
-    <div class="container">
-        <!-- Karta: Úkoly -->
-        <div class="card">
-            <h2>Dnešní úkoly</h2>
-            <div class="todo-input-group">
-                <input type="text" id="todo-input" placeholder="Co dnes uděláte?">
-                <button onclick="addTodo()">Přidat</button>
+    <div class="app-container">
+        <h1>🛒 Rodinný Nákup</h1>
+        
+        <!-- Upravený formulář -->
+        <div class="form-container">
+            <div class="inputs-row">
+                <input type="text" id="item-input" placeholder="Co koupit? (např. Mléko)" required>
+                
+                <div class="counter-group">
+                    <button class="counter-btn" onclick="changeCount(-1)">-</button>
+                    <input type="number" id="count-input" value="1" min="1">
+                    <button class="counter-btn" onclick="changeCount(1)">+</button>
+                </div>
             </div>
-            <ul id="todo-list"></ul>
+            <button class="add-btn" onclick="addItem()">Přidat na seznam</button>
         </div>
 
-        <!-- Karta: Časovač -->
-        <div class="card">
-            <h2>Focus Časovač</h2>
-            <div class="timer-display" id="timer-display">25:00</div>
-            <div class="timer-controls">
-                <button onclick="toggleTimer()" id="timer-btn">Spustit</button>
-                <button onclick="resetTimer()" style="background-color: #64748b; color: white;">Reset</button>
-            </div>
-        </div>
+        <!-- Seznam -->
+        <ul class="shopping-list" id="shopping-list"></ul>
 
-        <!-- Karta: Motivace -->
-        <div class="card">
-            <h2>Vibe check / Motivace</h2>
-            <div class="quote-box" id="quote-box">"Nejlepší způsob, jak začít, je přestat mluvit a začít dělat."</div>
-            <button onclick="newQuote()" style="width: 100%; margin-top: 15px; background-color: var(--success-color); color: white;">Nový citát</button>
+        <!-- Smazat zakoupené -->
+        <div class="clear-container" id="clear-container" style="display: none;">
+            <button class="clear-btn" onclick="clearBought()">Smazat zakoupené položky</button>
         </div>
     </div>
 
     <script>
-        // --- PAMĚŤ A UKLÁDÁNÍ (localStorage) ---
-        let todos = JSON.parse(localStorage.getItem('todos')) || [];
+        let shoppingItems = JSON.parse(localStorage.getItem('family_shopping_list')) || [];
 
-        // Inicializace aplikace při načtení
         document.addEventListener('DOMContentLoaded', () => {
-            renderTodos();
-            initTheme();
+            renderList();
         });
 
-        function saveTodos() {
-            localStorage.setItem('todos', JSON.stringify(todos));
+        function saveItems() {
+            localStorage.setItem('family_shopping_list', JSON.stringify(shoppingItems));
         }
 
-        // --- TO-DO LIST LOGIKA ---
-        function addTodo() {
-            const input = document.getElementById('todo-input');
-            const text = input.value.trim();
-            if (!text) return;
-
-            todos.push({ text: text, completed: false });
-            saveTodos();
-            renderTodos();
-            input.value = '';
+        // Funkce pro ovládání tlačítek + a -
+        function changeCount(amount) {
+            const countInput = document.getElementById('count-input');
+            let currentValue = parseInt(countInput.value) || 1;
+            currentValue += amount;
+            if (currentValue < 1) currentValue = 1;
+            countInput.value = currentValue;
         }
 
-        function toggleTodo(index) {
-            todos[index].completed = !todos[index].completed;
-            saveTodos();
-            renderTodos();
-        }
-
-        function deleteTodo(index, event) {
-            event.stopPropagation(); // Zabrání spuštění toggleTodo při kliknutí na X
-            todos.splice(index, 1);
-            saveTodos();
-            renderTodos();
-        }
-
-        function renderTodos() {
-            const ul = document.getElementById('todo-list');
-            ul.innerHTML = '';
+        function addItem() {
+            const nameInput = document.getElementById('item-input');
+            const countInput = document.getElementById('count-input');
             
-            todos.forEach((todo, index) => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <span class="${todo.completed ? 'completed' : ''}" onclick="toggleTodo(${index})">${todo.text}</span>
-                    <button onclick="deleteTodo(${index}, event)" style="padding: 2px 8px; background: #ef4444; color: white;">X</button>
-                `;
-                ul.appendChild(li);
+            const name = nameInput.value.trim();
+            const count = parseInt(countInput.value) || 1;
+
+            if (!name) return;
+
+            shoppingItems.push({
+                id: Date.now(),
+                name: name,
+                count: count + 'x',
+                bought: false
             });
+
+            saveItems();
+            renderList();
+
+            nameInput.value = '';
+            countInput.value = '1';
+            nameInput.focus();
         }
 
-        document.getElementById('todo-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') addTodo();
+        function toggleBought(id) {
+            shoppingItems = shoppingItems.map(item => {
+                if (item.id === id) {
+                    return { ...item, bought: !item.bought };
+                }
+                return item;
+            });
+            saveItems();
+            renderList();
+        }
+
+        function deleteItem(id, event) {
+            event.stopPropagation();
+            shoppingItems = shoppingItems.filter(item => item.id !== id);
+            saveItems();
+            renderList();
+        }
+
+        function clearBought() {
+            shoppingItems = shoppingItems.filter(item => !item.bought);
+            saveItems();
+            renderList();
+        }
+
+        function renderList() {
+            const listElement = document.getElementById('shopping-list');
+            const clearContainer = document.getElementById('clear-container');
+            listElement.innerHTML = '';
+
+            const sortedItems = [...shoppingItems].sort((a, b) => a.bought - b.bought);
+
+            sortedItems.forEach(item => {
+                const li = document.createElement('li');
+                li.className = `shopping-item ${item.bought ? 'bought' : ''}`;
+                li.setAttribute('onclick', `toggleBought(${item.id})`);
+
+                li.innerHTML = `
+                    <div class="item-info">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-count">${item.count}</span>
+                    </div>
+                    <button class="delete-btn" onclick="deleteItem(${item.id}, event)">🗑️</button>
+                `;
+                listElement.appendChild(li);
+            });
+
+            const hasBought = shoppingItems.some(item => item.bought);
+            clearContainer.style.display = hasBought ? 'block' : 'none';
+        }
+
+        document.getElementById('item-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addItem();
         });
-
-        // --- ČASOVAČ LOGIKA ---
-        let timeLeft = 25 * 60;
-        let timerId = null;
-
-        function updateTimerDisplay() {
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            document.getElementById('timer-display').innerText = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        function toggleTimer() {
-            const btn = document.getElementById('timer-btn');
-            if (timerId) {
-                clearInterval(timerId);
-                timerId = null;
-                btn.innerText = 'Spustit';
-            } else {
-                btn.innerText = 'Pauza';
-                timerId = setInterval(() => {
-                    if (timeLeft > 0) {
-                        timeLeft--;
-                        updateTimerDisplay();
-                    } else {
-                        clearInterval(timerId);
-                        alert('Čas vypršel! Dejte si pauzu.');
-                        resetTimer();
-                    }
-                }, 1000);
-            }
-        }
-
-        function resetTimer() {
-            clearInterval(timerId);
-            timerId = null;
-            timeLeft = 25 * 60;
-            updateTimerDisplay();
-            const btn = document.getElementById('timer-btn');
-            if(btn) btn.innerText = 'Spustit';
-        }
-
-        // --- CITÁTY LOGIKA ---
-        const quotes = [
-            '"Nejlepší způsob, jak začít, je přestat mluvit a začít dělat."',
-            '"Chyby jsou důkazem toho, že se snažíte."',
-            '"Kód funguje tak, jak jste ho napsali, ne jak jste si mysleli."',
-            '"Jednoduchost je nejvyšší sofistikovanost."',
-            '"Vibe coding je o myšlence, ne o syntaxi."'
-        ];
-
-        function newQuote() {
-            const randomIndex = Math.floor(Math.random() * quotes.length);
-            document.getElementById('quote-box').innerText = quotes[randomIndex];
-        }
-
-        // --- PŘEPÍNÁNÍ TÉMATU ---
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateThemeButton(savedTheme);
-        }
-
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeButton(newTheme);
-        }
-
-        function updateThemeButton(theme) {
-            const btn = document.getElementById('theme-btn');
-            btn.innerText = theme === 'light' ? '🌙 Tmavý režim' : '☀️ Světlý režim';
-        }
     </script>
 </body>
 </html>
-
-
