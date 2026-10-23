@@ -5,343 +5,235 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rodinný Nákupní Seznam</title>
     <style>
-        :root {
-            --bg-color: #f1f5f9;
-            --card-bg: #ffffff;
-            --text-color: #1e293b;
-            --primary-color: #4f46e5;
-            --border-color: #cbd5e1;
-            --bought-color: #94a3b8;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .app-container {
-            width: 100%;
-            max-width: 480px;
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-            box-sizing: border-box; /* Zabrání přetékání boxu */
-        }
-
-        h1 {
-            text-align: center;
-            margin-top: 0;
-            color: var(--primary-color);
-            font-size: 1.8rem;
-        }
-
-        /* Nový responzivní formulář */
-        .form-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .inputs-row {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-        }
-
-        input {
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            font-size: 1rem;
-            outline: none;
-            box-sizing: border-box;
-        }
-
-        #item-input {
-            flex: 2; /* Název zabere více místa */
-            min-width: 0; /* Oprava přetékání ve flexboxu */
-        }
-
-        /* Kontrolky pro množství (+ / -) */
-        .counter-group {
-            display: flex;
-            align-items: center;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-            background: #f8fafc;
-        }
-
-        .counter-btn {
-            background: none;
-            border: none;
-            padding: 0 12px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            cursor: pointer;
-            color: var(--text-color);
-            height: 100%;
-        }
-
-        .counter-btn:hover {
-            background-color: #e2e8f0;
-        }
-
-        #count-input {
-            width: 45px;
-            text-align: center;
-            border: none;
-            background: transparent;
-            padding: 0;
-            font-weight: bold;
-        }
-
-        /* Odstranění šipek z číselného inputu */
-        #count-input::-webkit-outer-spin-button,
-        #count-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        button.add-btn {
-            width: 100%;
-            padding: 14px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1rem;
-            transition: opacity 0.2s;
-        }
-
-        button.add-btn:hover {
-            opacity: 0.9;
-        }
-
-        /* Seznam položek */
-        .shopping-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .shopping-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px;
-            background: #f1f5f9;
-            margin-bottom: 8px;
-            border-radius: 8px;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .shopping-item:hover {
-            background: #e2e8f0;
-        }
-
-        .item-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-            min-width: 0;
-        }
-
-        .item-name {
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis; /* Dlouhý text zkrátí třemi tečkami */
-        }
-
-        .item-count {
-            background: #cbd5e1;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        /* Styl pro zakoupené položky */
-        .shopping-item.bought {
-            background: #f8fafc;
-            border: 1px dashed var(--border-color);
-            color: var(--bought-color);
-        }
-
-        .shopping-item.bought .item-name {
-            text-decoration: line-through;
-        }
-
-        .shopping-item.bought .item-count {
-            background: #e2e8f0;
-            color: var(--bought-color);
-        }
-
-        .delete-btn {
-            background: none;
-            border: none;
-            color: #ef4444;
-            cursor: pointer;
-            font-size: 1.1rem;
-            padding: 4px 8px;
-        }
-
-        .clear-container {
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        .clear-btn {
-            background: #ef4444;
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-        }
+        :root { --bg-color: #f1f5f9; --card-bg: #ffffff; --text-color: #1e293b; --primary-color: #4f46e5; --border-color: #cbd5e1; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .app-container { width: 100%; max-width: 480px; background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); box-sizing: border-box; }
+        h1 { text-align: center; margin-top: 0; color: var(--primary-color); font-size: 1.8rem; }
+        .user-status { display: flex; justify-content: space-between; align-items: center; background: #eef2ff; padding: 8px 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; font-weight: bold; }
+        .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-weight: bold; padding: 0; }
+        .form-container, .auth-container { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .inputs-row { display: flex; gap: 10px; width: 100%; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 1rem; outline: none; box-sizing: border-box; }
+        #item-input { flex: 2; min-width: 0; }
+        .counter-group { display: flex; align-items: center; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: #f8fafc; }
+        .counter-btn { background: none; border: none; padding: 0 12px; font-size: 1.2rem; font-weight: bold; cursor: pointer; color: var(--text-color); height: 100%; }
+        .counter-btn:hover { background-color: #e2e8f0; }
+        #count-input { width: 45px; text-align: center; border: none; background: transparent; padding: 0; font-weight: bold; }
+        #count-input::-webkit-outer-spin-button, #count-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        button.primary-btn { width: 100%; padding: 14px; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; }
+        button.secondary-btn { background: none; border: none; color: var(--primary-color); cursor: pointer; text-decoration: underline; font-size: 0.9rem; }
+        .shopping-list { list-style: none; padding: 0; margin: 0; }
+        .shopping-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #f1f5f9; margin-bottom: 8px; border-radius: 8px; gap: 10px; }
+        .item-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+        .item-top-row { display: flex; align-items: center; gap: 12px; }
+        .item-name { font-weight: 500; }
+        .item-count { background: #cbd5e1; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; }
+        .item-meta { font-size: 0.75rem; color: #64748b; line-height: 1.3; }
+        .action-btns { display: flex; gap: 4px; }
+        .action-btn { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 6px; border-radius: 6px; }
+        .action-btn:hover { background-color: #cbd5e1; }
+        .shopping-item.bought { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .shopping-item.bought .item-name { text-decoration: line-through; color: #166534; }
+        .shopping-item.bought .item-count { background: #bbf7d0; color: #166534; }
+        .shopping-item.deleted { background: #fef2f2; border: 1px dashed #fca5a5; }
+        .shopping-item.deleted .item-name { text-decoration: line-through; color: #991b1b; opacity: 0.6; }
+        .shopping-item.deleted .item-count { background: #fca5a5; color: #991b1b; opacity: 0.6; }
+        .clear-container { margin-top: 20px; text-align: center; }
+        .clear-btn { background: #64748b; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .admin-panel { margin-top: 25px; padding-top: 15px; border-top: 3px dashed #dc2626; }
+        .admin-panel h3 { margin-top: 0; color: #dc2626; font-size: 1.1rem; }
+        .user-list { list-style: none; padding: 0; margin: 0; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fef2f2; border: 1px solid #fca5a5; margin-bottom: 6px; border-radius: 6px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
-
     <div class="app-container">
         <h1>🛒 Rodinný Nákup</h1>
-        
-        <!-- Upravený formulář -->
-        <div class="form-container">
-            <div class="inputs-row">
-                <input type="text" id="item-input" placeholder="Co koupit? (např. Mléko)" required>
-                
-                <div class="counter-group">
-                    <button class="counter-btn" onclick="changeCount(-1)">-</button>
-                    <input type="number" id="count-input" value="1" min="1">
-                    <button class="counter-btn" onclick="changeCount(1)">+</button>
-                </div>
-            </div>
-            <button class="add-btn" onclick="addItem()">Přidat na seznam</button>
+
+        <!-- AUTENTIKACE -->
+        <div id="auth-section" class="auth-container">
+            <h2 id="auth-title" style="margin: 0; font-size: 1.2rem;">Přihlášení</h2>
+            <input type="text" id="username-input" placeholder="Jméno (např. Máma)">
+            <input type="password" id="password-input" placeholder="Heslo">
+            <button class="primary-btn" id="auth-submit-btn" onclick="handleAuth()">Přihlásit se</button>
+            <button class="secondary-btn" id="auth-toggle-btn" onclick="toggleAuthMode()">Nemáte účet? Zaregistrujte se</button>
         </div>
 
-        <!-- Seznam -->
-        <ul class="shopping-list" id="shopping-list"></ul>
+        <!-- HLAVNÍ APLIKACE -->
+        <div id="main-app-section" style="display: none;">
+            <div class="user-status" id="status-box">
+                <span>👤 Uživatel: <span id="current-user-display"></span></span>
+                <button class="logout-btn" onclick="logout()">Odhlásit se</button>
+            </div>
 
-        <!-- Smazat zakoupené -->
-        <div class="clear-container" id="clear-container" style="display: none;">
-            <button class="clear-btn" onclick="clearBought()">Smazat zakoupené položky</button>
+            <div class="form-container">
+                <div class="inputs-row">
+                    <input type="text" id="item-input" placeholder="Co koupit? (např. Mléko)" required>
+                    <div class="counter-group">
+                        <button class="counter-btn" onclick="changeCount(-1)">-</button>
+                        <input type="number" id="count-input" value="1" min="1">
+                        <button class="counter-btn" onclick="changeCount(1)">+</button>
+                    </div>
+                </div>
+                <button class="primary-btn" onclick="addItem()">Přidat na seznam</button>
+            </div>
+
+            <ul class="shopping-list" id="shopping-list"></ul>
+
+            <div class="clear-container" id="clear-container" style="display: none;">
+                <button class="clear-btn" onclick="clearAllArchive()">Vyčistit seznam (Trvale smazat zpracované)</button>
+            </div>
+
+            <!-- ADMIN PANEL -->
+            <div id="admin-section" class="admin-panel" style="display: none;">
+                <h3>🛡️ Správa uživatelů (Admin)</h3>
+                <ul class="user-list" id="user-list"></ul>
+            </div>
         </div>
     </div>
-
     <script>
         let shoppingItems = JSON.parse(localStorage.getItem('family_shopping_list')) || [];
+        let users = JSON.parse(localStorage.getItem('family_users')) || [];
+        let currentUser = localStorage.getItem('family_current_user') || null;
+        let isRegisterMode = false;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            renderList();
-        });
+        document.addEventListener('DOMContentLoaded', () => { checkLoginState(); });
 
-        function saveItems() {
-            localStorage.setItem('family_shopping_list', JSON.stringify(shoppingItems));
+        function checkLoginState() {
+            const authSection = document.getElementById('auth-section');
+            const mainSection = document.getElementById('main-app-section');
+            const adminSection = document.getElementById('admin-section');
+            const statusBox = document.getElementById('status-box');
+            
+            if (currentUser) {
+                authSection.style.display = 'none';
+                mainSection.style.display = 'block';
+                document.getElementById('current-user-display').innerText = currentUser;
+                if (currentUser === 'admin') {
+                    adminSection.style.display = 'block';
+                    statusBox.style.background = '#fef2f2'; statusBox.style.color = '#dc2626';
+                    renderUserList();
+                } else {
+                    adminSection.style.display = 'none';
+                    statusBox.style.background = '#eef2ff'; statusBox.style.color = '#1e293b';
+                }
+                renderList();
+            } else {
+                authSection.style.display = 'flex'; mainSection.style.display = 'none'; adminSection.style.display = 'none';
+            }
         }
 
-        // Funkce pro ovládání tlačítek + a -
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('auth-title').innerText = isRegisterMode ? 'Registrace nového člena' : 'Přihlášení';
+            document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Vytvořit účet' : 'Přihlásit se';
+            document.getElementById('auth-toggle-btn').innerText = isRegisterMode ? 'Už máte účet? Přihlaste se' : 'Nemáte účet? Zaregistrujte se';
+        }
+
+        function handleAuth() {
+            const username = document.getElementById('username-input').value.trim();
+            const password = document.getElementById('password-input').value;
+            if (!username || !password) { alert('Vyplňte jméno i heslo.'); return; }
+
+            if (username.toLowerCase() === 'admin' && password === 'admin') {
+                currentUser = 'admin'; localStorage.setItem('family_current_user', currentUser);
+                clearAuthInputs(); checkLoginState(); return;
+            }
+
+            if (isRegisterMode) {
+                if (username.toLowerCase() === 'admin' || users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+                    alert('Jméno je zabrané nebo neplatné.'); return;
+                }
+                users.push({ username: username, password: btoa(password) });
+                localStorage.setItem('family_users', JSON.stringify(users)); currentUser = username;
+            } else {
+                const user = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === btoa(password));
+                if (!user) { alert('Nesprávné jméno nebo heslo.'); return; }
+                currentUser = user.username;
+            }
+            localStorage.setItem('family_current_user', currentUser); clearAuthInputs(); checkLoginState();
+        }
+
+        function clearAuthInputs() { document.getElementById('username-input').value = ''; document.getElementById('password-input').value = ''; }
+        function logout() { currentUser = null; localStorage.removeItem('family_current_user'); checkLoginState(); }
+
+        function renderUserList() {
+            const el = document.getElementById('user-list'); el.innerHTML = '';
+            if (users.length === 0) { el.innerHTML = '<li>Žádní uživatelé.</li>'; return; }
+            users.forEach((user, index) => {
+                const li = document.createElement('li'); li.className = 'user-item';
+                li.innerHTML = `<div><strong>${user.username}</strong><br><span style="font-size:0.8rem;color:#475569;">Heslo: ${atob(user.password)}</span></div><button class="logout-btn" onclick="deleteUser(${index})">❌ Smazat</button>`;
+                el.appendChild(li);
+            });
+        }
+
+        function deleteUser(index) {
+            if (confirm(`Smazat uživatele ${users[index].username}?`)) { users.splice(index, 1); localStorage.setItem('family_users', JSON.stringify(users)); renderUserList(); }
+        }
+
         function changeCount(amount) {
-            const countInput = document.getElementById('count-input');
-            let currentValue = parseInt(countInput.value) || 1;
-            currentValue += amount;
-            if (currentValue < 1) currentValue = 1;
-            countInput.value = currentValue;
+            const input = document.getElementById('count-input'); let val = (parseInt(input.value) || 1) + amount;
+            if (val < 1) val = 1; input.value = val;
         }
+
+        function getFormattedTime() { const now = new Date(); return `${now.getDate()}. ${now.getMonth() + 1}. v ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`; }
 
         function addItem() {
-            const nameInput = document.getElementById('item-input');
-            const countInput = document.getElementById('count-input');
-            
-            const name = nameInput.value.trim();
-            const count = parseInt(countInput.value) || 1;
-
+            const nameInput = document.getElementById('item-input'); const countInput = document.getElementById('count-input');
+            const name = nameInput.value.trim(); const count = parseInt(countInput.value) || 1;
             if (!name) return;
 
-            shoppingItems.push({
-                id: Date.now(),
-                name: name,
-                count: count + 'x',
-                bought: false
-            });
-
-            saveItems();
-            renderList();
-
-            nameInput.value = '';
-            countInput.value = '1';
-            nameInput.focus();
+            shoppingItems.push({ id: Date.now(), name: name, count: count + 'x', status: 'active', addedBy: currentUser, addedAt: getFormattedTime(), actionBy: null, actionAt: null, comment: '' });
+            localStorage.setItem('family_shopping_list', JSON.stringify(shoppingItems)); renderList();
+            nameInput.value = ''; countInput.value = '1'; nameInput.focus();
         }
 
-        function toggleBought(id) {
+        function markAsBought(id) {
             shoppingItems = shoppingItems.map(item => {
                 if (item.id === id) {
-                    return { ...item, bought: !item.bought };
+                    const isBought = item.status === 'bought';
+                    return { ...item, status: isBought ? 'active' : 'bought', actionBy: isBought ? null : currentUser, actionAt: isBought ? null : getFormattedTime() };
                 }
                 return item;
             });
-            saveItems();
-            renderList();
+            localStorage.setItem('family_shopping_list', JSON.stringify(shoppingItems)); renderList();
         }
 
-        function deleteItem(id, event) {
-            event.stopPropagation();
-            shoppingItems = shoppingItems.filter(item => item.id !== id);
-            saveItems();
-            renderList();
+        function markAsDeleted(id) {
+            const item = shoppingItems.find(i => i.id === id);
+            if (item.status === 'deleted') {
+                shoppingItems = shoppingItems.map(i => i.id === id ? { ...i, status: 'active', actionBy: null, actionAt: null, comment: '' } : i);
+            } else {
+                const comment = prompt(`Proč odebíráte "${item.name}"? (Nepovinné):`) || '';
+                shoppingItems = shoppingItems.map(i => i.id === id ? { ...i, status: 'deleted', actionBy: currentUser, actionAt: getFormattedTime(), comment: comment.trim() } : i);
+            }
+            localStorage.setItem('family_shopping_list', JSON.stringify(shoppingItems)); renderList();
         }
 
-        function clearBought() {
-            shoppingItems = shoppingItems.filter(item => !item.bought);
-            saveItems();
-            renderList();
+        function clearAllArchive() {
+            if (confirm('Smazat trvale zpracované položky?')) { shoppingItems = shoppingItems.filter(item => item.status === 'active'); localStorage.setItem('family_shopping_list', JSON.stringify(shoppingItems)); renderList(); }
         }
 
         function renderList() {
-            const listElement = document.getElementById('shopping-list');
-            const clearContainer = document.getElementById('clear-container');
-            listElement.innerHTML = '';
+            const listEl = document.getElementById('shopping-list'); const clearContainer = document.getElementById('clear-container'); listEl.innerHTML = '';
+            const sorted = [...shoppingItems].sort((a, b) => { const score = { 'active': 1, 'bought': 2, 'deleted': 3 }; return score[a.status] - score[b.status]; });
 
-            const sortedItems = [...shoppingItems].sort((a, b) => a.bought - b.bought);
+            sorted.forEach(item => {
+                const li = document.createElement('li'); li.className = `shopping-item ${item.status}`;
+                let meta = `✍️ Přidal: ${item.addedBy} (${item.addedAt})`;
+                if (item.status === 'bought') meta += `<br>✅ Koupil: ${item.actionBy} (${item.actionAt})`;
+                else if (item.status === 'deleted') { meta += `<br>❌ Odebral: ${item.actionBy} (${item.actionAt})`; if (item.comment) meta += `<br>💬 Důvod: "${item.comment}"`; }
 
-            sortedItems.forEach(item => {
-                const li = document.createElement('li');
-                li.className = `shopping-item ${item.bought ? 'bought' : ''}`;
-                li.setAttribute('onclick', `toggleBought(${item.id})`);
+                let btns = '';
+                if (item.status === 'active') btns = `<button class="action-btn" onclick="markAsBought(${item.id})">✅</button><button class="action-btn" onclick="markAsDeleted(${item.id})">🗑️</button>`;
+                else btns = `<button class="action-btn" onclick="${item.status === 'bought' ? 'markAsBought' : 'markAsDeleted'}(${item.id})">↩️</button>`;
 
-                li.innerHTML = `
-                    <div class="item-info">
-                        <span class="item-name">${item.name}</span>
-                        <span class="item-count">${item.count}</span>
-                    </div>
-                    <button class="delete-btn" onclick="deleteItem(${item.id}, event)">🗑️</button>
-                `;
-                listElement.appendChild(li);
+                li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${item.name}</span><span class="item-count">${item.count}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${btns}</div>`;
+                listEl.appendChild(li);
             });
-
-            const hasBought = shoppingItems.some(item => item.bought);
-            clearContainer.style.display = hasBought ? 'block' : 'none';
+            clearContainer.style.display = shoppingItems.some(item => item.status !== 'active') ? 'block' : 'none';
         }
-
-        document.getElementById('item-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') addItem();
-        });
+        document.getElementById('item-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') addItem(); });
     </script>
 </body>
 </html>
