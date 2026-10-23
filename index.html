@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="cs">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,9 +35,6 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 .shopping-item.deleted .item-name { text-decoration: line-through; color: #991b1b; opacity: 0.6; }
 .clear-container { margin-top: 20px; text-align: center; }
 .clear-btn { background: #64748b; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-.admin-panel { margin-top: 25px; padding-top: 15px; border-top: 3px dashed #dc2626; }
-.user-list { list-style: none; padding: 0; margin: 0; }
-.user-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fef2f2; border: 1px solid #fca5a5; margin-bottom: 6px; border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -45,55 +42,184 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 <h1>🛒 Rodinný Nákup</h1>
 <div id="auth-section" class="auth-container">
 <h2 id="auth-title" style="margin:0;font-size:1.2rem;">Přihlášení</h2>
-<input type="text" id="username-input" placeholder="Jméno"><input type="password" id="password-input" placeholder="Heslo">
+<input type="text" id="username-input" placeholder="Uživatelské jméno" autocomplete="username"><input type="password" id="password-input" placeholder="Heslo" autocomplete="current-password">
 <button class="primary-btn" id="auth-submit-btn" onclick="handleAuth()">Přihlásit se</button>
 <button class="secondary-btn" id="auth-toggle-btn" onclick="toggleAuthMode()">Nemáte účet? Registrace</button>
 </div>
 <div id="main-app-section" style="display:none;">
 <div class="user-status" id="status-box"><span>👤: <span id="current-user-display"></span></span><button class="logout-btn" onclick="logout()">Odhlásit</button></div>
+<div id="admin-panel" style="display:none; margin-bottom:20px;">
+    <h3 style="margin:0 0 10px 0;">Uživatelé</h3>
+    <ul id="admin-users-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
+</div>
 <div class="form-container"><div class="inputs-row"><input type="text" id="item-input" placeholder="Co koupit?" required>
 <div class="counter-group"><button class="counter-btn" onclick="changeCount(-1)">-</button><input type="number" id="count-input" value="1" min="1"><button class="counter-btn" onclick="changeCount(1)">+</button></div></div>
 <button class="primary-btn" onclick="addItem()">Přidat na seznam</button></div>
 <ul class="shopping-list" id="shopping-list"></ul>
 <div class="clear-container" id="clear-container" style="display:none;"><button class="clear-btn" onclick="clearAllArchive()">Vyčistit vyřízené položky</button></div>
-<div id="admin-section" class="admin-panel" style="display:none;"><h3 style="color:#dc2626;margin:0 0 10px 0;">🛡️ Uživatelé</h3><ul class="user-list" id="user-list"></ul></div>
 </div>
 </div>
 <script>
-// Plně přednastavená adresa databáze – žádné upravování klíčů, funguje ihned!
-const DB_URL = "https://firebasedatabase.app";
-let appData = { users: {}, shoppingItems: {} };
+const SUPABASE_URL = "https://hyzidgahsjfbcvnsqooe.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_A8hqoD7YSDF95LgPy6LZNA_pvuW3P6m";
+const SESSION_KEY = "family_supabase_session";
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'admin';
+let appData = { shoppingItems: {}, users: [] };
 let isRegisterMode = false;
-let currentUser = localStorage.getItem('family_current_user') || null;
+let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadCloudData(); checkLoginState();
-    // Okamžitá kontrola změn každé 3 vteřiny
-    setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 3000);
+    const savedSession = localStorage.getItem(SESSION_KEY);
+    if (savedSession) {
+        try {
+            const session = JSON.parse(savedSession);
+            currentUser = session.username || null;
+        } catch (error) {
+            console.error('Nepodařilo se obnovit relaci:', error);
+            localStorage.removeItem(SESSION_KEY);
+        }
+    }
+    checkLoginState();
+    if (currentUser) {
+        try {
+            await loadCloudData();
+            if (currentUser === ADMIN_USERNAME) {
+                await loadUsers();
+                renderAdminUsers();
+            }
+            renderList();
+        } catch (error) {
+            console.error('Načtení nákupního seznamu selhalo:', error);
+            alert(`Nákupní seznam se nepodařilo načíst: ${error.message}`);
+        }
+    }
+    setInterval(async () => {
+        if (!currentUser) return;
+        try {
+            await loadCloudData();
+            renderList();
+        } catch (error) {
+            console.error('Synchronizace nákupního seznamu selhalo:', error);
+        }
+    }, 3000);
 });
 
-async function loadCloudData() {
-    try {
-        const res = await fetch(DB_URL);
-        if (res.ok) { const data = await res.json(); if (data) appData = data; }
-    } catch (e) { console.log("Načítání cloudu..."); }
-    if (!appData.users) appData.users = {}; if (!appData.shoppingItems) appData.shoppingItems = {};
+function supabaseUrl(path) {
+    return `${SUPABASE_URL.replace(/\/$/, '')}${path}`;
 }
 
-async function saveCloudData() {
-    try { await fetch(DB_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) }); } 
-    catch (e) { console.log("Chyba synchronizace."); }
+function saveSession(username) {
+    currentUser = username;
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ username }));
+}
+
+async function supabaseRequest(path, { method = 'GET', body, prefer } = {}) {
+    if (!SUPABASE_URL.startsWith('https://') || SUPABASE_URL.includes('YOUR_PROJECT') ||
+        !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE')) {
+        throw new Error('Nejdříve v index.html nastavte URL projektu a veřejný anon key ze Supabase.');
+    }
+
+    const headers = { apikey: SUPABASE_ANON_KEY };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (prefer) headers.Prefer = prefer;
+
+    const response = await fetch(supabaseUrl(path), {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body)
+    });
+
+    const responseText = await response.text();
+    let data = null;
+    if (responseText) {
+        try {
+            data = JSON.parse(responseText);
+        } catch {
+            throw new Error(`Supabase vrátil nečitelnou odpověď (${response.status}).`);
+        }
+    }
+    if (!response.ok) {
+        throw new Error(data?.msg || data?.message || data?.error_description || data?.error || `Požadavek Supabase selhal (${response.status}).`);
+    }
+    return data;
+}
+
+async function loadCloudData() {
+    const rows = await supabaseRequest('/rest/v1/family_shopping_list?select=*&order=id.asc');
+    appData.shoppingItems = Object.fromEntries(rows.map(row => [row.id, {
+        id: row.id,
+        name: row.name,
+        count: row.count,
+        status: row.status,
+        added_by: row.added_by,
+        added_at: row.added_at,
+        action_by: row.action_by || '',
+        action_at: row.action_at || '',
+        comment: row.comment || ''
+    }]));
+}
+
+async function loadUsers() {
+    const rows = await supabaseRequest('/rest/v1/family_users?select=*&order=id.asc');
+    appData.users = rows.filter(user => user.username !== ADMIN_USERNAME);
+}
+
+function renderAdminUsers() {
+    const adminUsersList = document.getElementById('admin-users-list');
+    if (!adminUsersList) return;
+    adminUsersList.innerHTML = '';
+    if (!appData.users.length) {
+        adminUsersList.innerHTML = '<li style="color:#64748b;">Žádní uživatelé</li>';
+        return;
+    }
+
+    appData.users.forEach(user => {
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        li.style.alignItems = 'center';
+        li.style.gap = '8px';
+        li.style.padding = '8px 10px';
+        li.style.background = '#f8fafc';
+        li.style.borderRadius = '8px';
+        li.innerHTML = `<span>${escapeHtml(user.username)}</span><button class="action-btn" onclick="deleteUser(${Number(user.id)})" title="Smazat uživatele">🗑️</button>`;
+        adminUsersList.appendChild(li);
+    });
+}
+
+async function deleteUser(id) {
+    if (!confirm('Opravdu smazat tohoto uživatele?')) return;
+    try {
+        await supabaseRequest(`/rest/v1/family_users?id=eq.${id}`, { method: 'DELETE' });
+        await loadUsers();
+        renderAdminUsers();
+    } catch (error) {
+        console.error('Smazání uživatele selhalo:', error);
+        alert(`Uživatele se nepodařilo smazat: ${error.message}`);
+    }
 }
 
 function checkLoginState() {
-    const authBox = document.getElementById('auth-section'); const mainBox = document.getElementById('main-app-section');
-    const adminBox = document.getElementById('admin-section'); const statBox = document.getElementById('status-box');
+    const authBox = document.getElementById('auth-section');
+    const mainBox = document.getElementById('main-app-section');
+    const statBox = document.getElementById('status-box');
+    const adminPanel = document.getElementById('admin-panel');
+    const isAdmin = currentUser === ADMIN_USERNAME;
     if (currentUser) {
-        authBox.style.display = 'none'; mainBox.style.display = 'block'; document.getElementById('current-user-display').innerText = currentUser;
-        if (currentUser === 'admin') { adminBox.style.display = 'block'; statBox.style.background = '#fef2f2'; statBox.style.color = '#dc2626'; renderUserList(); }
-        else { adminBox.style.display = 'none'; statBox.style.background = '#eef2ff'; statBox.style.color = '#1e293b'; }
+        authBox.style.display = 'none';
+        mainBox.style.display = 'block';
+        document.getElementById('current-user-display').innerText = isAdmin ? `${currentUser} (admin)` : currentUser;
+        statBox.style.background = isAdmin ? '#fef3c7' : '#eef2ff';
+        statBox.style.color = isAdmin ? '#78350f' : '#1e293b';
+        if (adminPanel) adminPanel.style.display = isAdmin ? 'block' : 'none';
         renderList();
-    } else { authBox.style.display = 'flex'; mainBox.style.display = 'none'; adminBox.style.display = 'none'; }
+        if (isAdmin) renderAdminUsers();
+    } else {
+        authBox.style.display = 'flex';
+        mainBox.style.display = 'none';
+        if (adminPanel) adminPanel.style.display = 'none';
+    }
 }
 
 function toggleAuthMode() {
@@ -101,79 +227,221 @@ function toggleAuthMode() {
     document.getElementById('auth-title').innerText = isRegisterMode ? 'Registrace' : 'Přihlášení';
     document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Vytvořit účet' : 'Přihlásit se';
     document.getElementById('auth-toggle-btn').innerText = isRegisterMode ? 'Zpět na Přihlášení' : 'Nemáte účet? Registrace';
+    document.getElementById('password-input').autocomplete = isRegisterMode ? 'new-password' : 'current-password';
 }
 
 async function handleAuth() {
-    const name = document.getElementById('username-input').value.trim(); const pass = document.getElementById('password-input').value;
-    if (!name || !pass) { alert('Vyplňte údaje.'); return; }
-    if (name.toLowerCase() === 'admin' && pass === 'admin') { currentUser = 'admin'; localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState(); return; }
-    await loadCloudData();
-    if (isRegisterMode) {
-        if (name.toLowerCase() === 'admin' || Object.values(appData.users).some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
-        const id = Date.now(); appData.users[id] = { id: id, username: name, password: btoa(pass) };
-        currentUser = name; localStorage.setItem('family_current_user', currentUser); await saveCloudData(); 
-    } else {
-        const u = Object.values(appData.users).find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
-        if (!u) { alert('Chyba jména/hesla.'); return; } currentUser = u.username; localStorage.setItem('family_current_user', currentUser);
+    const username = document.getElementById('username-input').value.trim();
+    const password = document.getElementById('password-input').value;
+    if (!username || !password) {
+        alert('Vyplňte uživatelské jméno a heslo.');
+        return;
     }
-    clearAuth(); checkLoginState();
+
+    const normalizedUsername = username.toLowerCase();
+
+    try {
+        if (isRegisterMode) {
+            if (normalizedUsername === ADMIN_USERNAME) {
+                alert('Toto jméno je rezervované pro administrátora.');
+                return;
+            }
+            const existing = await supabaseRequest(`/rest/v1/family_users?username=eq.${encodeURIComponent(username)}&select=id`);
+            if (existing.length) {
+                alert('Uživatelské jméno je již zabrané.');
+                return;
+            }
+            await supabaseRequest('/rest/v1/family_users', {
+                method: 'POST',
+                body: { username, password }
+            });
+            alert('Účet byl vytvořen. Nyní se přihlaste.');
+            toggleAuthMode();
+            clearAuth();
+            return;
+        }
+
+        if (normalizedUsername === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+            saveSession(ADMIN_USERNAME);
+            clearAuth();
+            checkLoginState();
+            await loadCloudData();
+            await loadUsers();
+            renderAdminUsers();
+            renderList();
+            return;
+        }
+
+        const users = await supabaseRequest(`/rest/v1/family_users?username=eq.${encodeURIComponent(username)}&select=*`);
+        if (!users.length) {
+            alert('Špatné uživatelské jméno nebo heslo.');
+            return;
+        }
+
+        const user = users[0];
+        if (user.password !== password) {
+            alert('Špatné uživatelské jméno nebo heslo.');
+            return;
+        }
+
+        saveSession(username);
+        clearAuth();
+        checkLoginState();
+        await loadCloudData();
+        renderList();
+    } catch (error) {
+        console.error('Přihlášení k Supabase selhalo:', error);
+        alert(`Přihlášení se nepodařilo: ${error.message}`);
+    }
 }
 
-function clearAuth() { document.getElementById('username-input').value = ''; document.getElementById('password-input').value = ''; }
-function logout() { currentUser = null; localStorage.removeItem('family_current_user'); checkLoginState(); }
-
-function renderUserList() {
-    const el = document.getElementById('user-list'); el.innerHTML = '';
-    Object.keys(appData.users).forEach((key) => {
-        const u = appData.users[key]; const li = document.createElement('li'); li.className = 'user-item';
-        li.innerHTML = `<div><strong>${u.username}</strong><br><span style="font-size:0.8rem;color:#64748b;">Heslo: ${atob(u.password)}</span></div><button class="logout-btn" onclick="deleteUser('${key}')">❌</button>`;
-        el.appendChild(li);
-    });
+function clearAuth() {
+    document.getElementById('username-input').value = '';
+    document.getElementById('password-input').value = '';
 }
 
-async function deleteUser(key) { if (confirm('Smazat?')) { delete appData.users[key]; await saveCloudData(); renderUserList(); } }
-function changeCount(amt) { const input = document.getElementById('count-input'); let val = (parseInt(input.value) || 1) + amt; if (val < 1) val = 1; input.value = val; }
-function getTime() { const n = new Date(); return `${n.getDate()}. ${n.getMonth() + 1}. v ${n.getHours()}:${n.getMinutes().toString().padStart(2, '0')}`; }
+
+async function logout() {
+    currentUser = null;
+    localStorage.removeItem(SESSION_KEY);
+    checkLoginState();
+}
+
+function changeCount(amt) {
+    const input = document.getElementById('count-input');
+    let val = (parseInt(input.value) || 1) + amt;
+    if (val < 1) val = 1;
+    input.value = val;
+}
+
+function getTime() {
+    const n = new Date();
+    return `${n.getDate()}. ${n.getMonth() + 1}. v ${n.getHours()}:${n.getMinutes().toString().padStart(2, '0')}`;
+}
 
 async function addItem() {
-    const nIn = document.getElementById('item-input'); const cIn = document.getElementById('count-input'); const name = nIn.value.trim(); if (!name) return;
-    await loadCloudData(); const id = Date.now();
-    appData.shoppingItems[id] = { id: id, name: name, count: cIn.value + 'x', status: 'active', added_by: currentUser, added_at: getTime(), action_by: '', action_at: '', comment: '' };
-    nIn.value = ''; cIn.value = '1'; nIn.focus(); await saveCloudData(); renderList();
+    const nIn = document.getElementById('item-input');
+    const cIn = document.getElementById('count-input');
+    const name = nIn.value.trim();
+    if (!name) return;
+    try {
+        await supabaseRequest('/rest/v1/family_shopping_list', {
+            method: 'POST',
+            body: {
+                name,
+                count: String(cIn.value),
+                status: 'active',
+                added_by: currentUser,
+                added_at: getTime()
+            }
+        });
+        nIn.value = '';
+        cIn.value = '1';
+        nIn.focus();
+        await loadCloudData();
+        renderList();
+    } catch (error) {
+        console.error('Přidání položky selhalo:', error);
+        alert(`Položku se nepodařilo přidat: ${error.message}`);
+    }
+}
+
+function escapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
 }
 
 async function markAsBought(id) {
-    await loadCloudData(); if (!appData.shoppingItems[id]) return; const isB = appData.shoppingItems[id].status === 'bought';
-    appData.shoppingItems[id].status = isB ? 'active' : 'bought'; appData.shoppingItems[id].action_by = isB ? '' : currentUser; appData.shoppingItems[id].action_at = isB ? '' : getTime();
-    await saveCloudData(); renderList();
+    const item = appData.shoppingItems[id];
+    if (!item) return;
+    const isBought = item.status === 'bought';
+    try {
+        await supabaseRequest(`/rest/v1/family_shopping_list?id=eq.${id}`, {
+            method: 'PATCH',
+            body: {
+                status: isBought ? 'active' : 'bought',
+                action_by: isBought ? null : currentUser,
+                action_at: isBought ? null : getTime()
+            }
+        });
+        await loadCloudData();
+        renderList();
+    } catch (error) {
+        console.error('Změna stavu položky selhalo:', error);
+        alert(`Stav položky se nepodařilo změnit: ${error.message}`);
+    }
 }
 
 async function markAsDeleted(id) {
-    await loadCloudData(); if (!appData.shoppingItems[id]) return; const item = appData.shoppingItems[id];
-    if (item.status === 'deleted') { appData.shoppingItems[id].status = 'active'; appData.shoppingItems[id].action_by = ''; appData.shoppingItems[id].action_at = ''; appData.shoppingItems[id].comment = ''; } 
-    else { const msg = prompt(`Důvod odebrání "${item.name}"?:`) || ''; appData.shoppingItems[id].status = 'deleted'; appData.shoppingItems[id].action_by = currentUser; appData.shoppingItems[id].action_at = getTime(); appData.shoppingItems[id].comment = msg.trim(); }
-    await saveCloudData(); renderList();
+    const item = appData.shoppingItems[id];
+    if (!item) return;
+    const restore = item.status === 'deleted';
+    const comment = restore ? null : (prompt(`Důvod odebrání "${item.name}"?:`) || '').trim();
+    try {
+        await supabaseRequest(`/rest/v1/family_shopping_list?id=eq.${id}`, {
+            method: 'PATCH',
+            body: {
+                status: restore ? 'active' : 'deleted',
+                action_by: restore ? null : currentUser,
+                action_at: restore ? null : getTime(),
+                comment
+            }
+        });
+        await loadCloudData();
+        renderList();
+    } catch (error) {
+        console.error('Odebrání položky selhalo:', error);
+        alert(`Položku se nepodařilo upravit: ${error.message}`);
+    }
 }
 
 async function clearAllArchive() {
-    if (confirm('Trvale smazat?')) { await loadCloudData(); Object.keys(appData.shoppingItems).forEach(k => { if (appData.shoppingItems[k].status !== 'active') delete appData.shoppingItems[k]; }); await saveCloudData(); renderList(); }
+    if (!confirm('Trvale smazat?')) return;
+    try {
+        await supabaseRequest('/rest/v1/family_shopping_list?status=neq.active', { method: 'DELETE' });
+        await loadCloudData();
+        renderList();
+    } catch (error) {
+        console.error('Mazání vyřízených položek selhalo:', error);
+        alert(`Vyřízené položky se nepodařilo smazat: ${error.message}`);
+    }
 }
 
 function renderList() {
-    const listEl = document.getElementById('shopping-list'); const clearEl = document.getElementById('clear-container'); listEl.innerHTML = '';
-    const sorted = Object.values(appData.shoppingItems).sort((a, b) => { const s = { 'active': 1, 'bought': 2, 'deleted': 3 }; return s[a.status] - s[b.status]; });
+    const listEl = document.getElementById('shopping-list');
+    const clearEl = document.getElementById('clear-container');
+    listEl.innerHTML = '';
+    const sorted = Object.values(appData.shoppingItems).sort((a, b) => {
+        const s = { active: 1, bought: 2, deleted: 3 };
+        return s[a.status] - s[b.status];
+    });
     sorted.forEach(i => {
-        const li = document.createElement('li'); li.className = `shopping-item ${i.status}`;
-        let meta = `✍️ ${i.added_by} (${i.added_at})`;
-        if (i.status === 'bought') meta += `<br>✅ Koupil: ${i.action_by} (${i.action_at})`;
-        else if (i.status === 'deleted') { meta += `<br>❌ Odebral: ${i.action_by} (${i.action_at})`; if (i.comment) meta += `<br>💬: "${i.comment}"`; }
-        let btns = i.status === 'active' ? `<button class="action-btn" onclick="markAsBought(${i.id})">✅</button><button class="action-btn" onclick="markAsDeleted(${i.id})">🗑️</button>` : `<button class="action-btn" onclick="${i.status === 'bought' ? 'markAsBought' : 'markAsDeleted'}(${i.id})">↩️</button>`;
-        li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${i.name}</span><span class="item-count">${i.count}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${btns}</div>`;
+        const li = document.createElement('li');
+        li.className = `shopping-item ${i.status}`;
+        let meta = `✍️ ${escapeHtml(i.added_by)} (${escapeHtml(i.added_at)})`;
+        if (i.status === 'bought') {
+            meta += `<br>✅ Koupil: ${escapeHtml(i.action_by)} (${escapeHtml(i.action_at)})`;
+        } else if (i.status === 'deleted') {
+            meta += `<br>❌ Odebral: ${escapeHtml(i.action_by)} (${escapeHtml(i.action_at)})`;
+            if (i.comment) meta += `<br>💬: "${escapeHtml(i.comment)}"`;
+        }
+        let btns = i.status === 'active'
+            ? `<button class="action-btn" onclick="markAsBought(${i.id})">✅</button><button class="action-btn" onclick="markAsDeleted(${i.id})">🗑️</button>`
+            : `<button class="action-btn" onclick="${i.status === 'bought' ? 'markAsBought' : 'markAsDeleted'}(${i.id})">↩️</button>`;
+        li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${escapeHtml(i.name)}</span><span class="item-count">${escapeHtml(i.count)}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${btns}</div>`;
         listEl.appendChild(li);
     });
     clearEl.style.display = Object.values(appData.shoppingItems).some(i => i.status !== 'active') ? 'block' : 'none';
 }
-document.getElementById('item-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') addItem(); });
+
+document.getElementById('item-input').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') addItem();
+});
 </script>
 </body>
 </html>
