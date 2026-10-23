@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nákup</title>
+<title>Rodinný Nákup</title>
 <style>
 :root { --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --prime: #4f46e5; --border: #cbd5e1; }
 body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
@@ -60,28 +60,37 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 </div>
 </div>
 <script>
-const BIN_URL = "https://jsonbin.io";
+// --- NASTAVENÍ SPOJENÍ S VAŠÍM GITHUBEM ---
+const GH_USER = "Odulin";
+const GH_REPO = "muj-dashboard"; // Název vašeho úložiště
+const GH_TOKEN = "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"; // Token (Návod níže)
+
+const FILE_PATH = "data.json";
+const URL = `https://github.com{GH_USER}/${GH_REPO}/contents/${FILE_PATH}`;
 let appData = { users: [], shoppingItems: [] };
-let isRegisterMode = false;
+let fileSha = null; let isRegisterMode = false;
 let currentUser = localStorage.getItem('family_current_user') || null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadCloudData(); checkLoginState();
-    setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 4000);
+    setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 6000);
 });
 
 async function loadCloudData() {
     try {
-        const res = await fetch(`${BIN_URL}/latest`, { headers: { "X-Bin-Meta": "false" } });
-        if (res.ok) { const data = await res.json(); if (data) appData = data; }
-    } catch (e) { console.log("Chyba stahování"); }
+        const res = await fetch(URL, { headers: { "Authorization": `token ${GH_TOKEN}` } });
+        if (res.ok) { const json = await res.json(); fileSha = json.sha; const content = decodeURIComponent(escape(atob(json.content))); appData = JSON.parse(content); }
+    } catch (e) { console.log("První načítání dat..."); }
     if (!appData.users) appData.users = []; if (!appData.shoppingItems) appData.shoppingItems = [];
 }
 
 async function saveCloudData() {
     try {
-        await fetch(BIN_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) });
-    } catch (e) { console.log("Chyba nahrávání"); }
+        const rawContent = unescape(encodeURIComponent(JSON.stringify(appData))); const base64Content = btoa(rawContent);
+        const body = { message: "Aktualizace nákupního seznamu", content: base64Content }; if (fileSha) body.sha = fileSha;
+        const res = await fetch(URL, { method: 'PUT', headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (res.ok) { const json = await res.json(); fileSha = json.content.sha; }
+    } catch (e) { console.log("Chyba ukládání"); }
 }
 
 function checkLoginState() {
@@ -106,18 +115,14 @@ async function handleAuth() {
     const name = document.getElementById('username-input').value.trim(); const pass = document.getElementById('password-input').value;
     if (!name || !pass) { alert('Vyplňte údaje.'); return; }
     if (name.toLowerCase() === 'admin' && pass === 'admin') { currentUser = 'admin'; localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState(); return; }
-    
-    await loadCloudData(); // Klíčové: Před ověřením/zápisem stáhneme nejnovější lidi z internetu
-    
+    await loadCloudData();
     if (isRegisterMode) {
         if (name.toLowerCase() === 'admin' || appData.users.some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
         appData.users.push({ id: Date.now(), username: name, password: btoa(pass) });
-        currentUser = name; localStorage.setItem('family_current_user', currentUser);
-        await saveCloudData(); 
+        currentUser = name; localStorage.setItem('family_current_user', currentUser); await saveCloudData(); 
     } else {
         const u = appData.users.find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
-        if (!u) { alert('Chyba jména/hesla.'); return; } 
-        currentUser = u.username; localStorage.setItem('family_current_user', currentUser);
+        if (!u) { alert('Chyba jména/hesla.'); return; } currentUser = u.username; localStorage.setItem('family_current_user', currentUser);
     }
     clearAuth(); checkLoginState();
 }
@@ -154,7 +159,7 @@ async function markAsBought(id) {
 }
 
 async function markAsDeleted(id) {
-    await loadCloudData(); const item = appData.shoppingItems.find(i => i.id === id);
+    await loadCloudData(); const item = appData.shoppingItems.find(i => i.id === id); if (!item) return;
     if (item.status === 'deleted') {
         appData.shoppingItems = appData.shoppingItems.map(i => i.id === id ? { ...i, status: 'active', action_by: '', action_at: '', comment: '' } : i);
     } else {
