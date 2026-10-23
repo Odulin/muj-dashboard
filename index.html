@@ -60,37 +60,29 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 </div>
 </div>
 <script>
-// --- NASTAVENÍ SPOJENÍ S VAŠÍM GITHUBEM ---
-const GH_USER = "Odulin";
-const GH_REPO = "muj-dashboard"; // Název vašeho úložiště
-const GH_TOKEN = "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"; // Token (Návod níže)
-
-const FILE_PATH = "data.json";
-const URL = `https://github.com{GH_USER}/${GH_REPO}/contents/${FILE_PATH}`;
-let appData = { users: [], shoppingItems: [] };
-let fileSha = null; let isRegisterMode = false;
+// Plně přednastavená adresa databáze – žádné upravování klíčů, funguje ihned!
+const DB_URL = "https://firebasedatabase.app";
+let appData = { users: {}, shoppingItems: {} };
+let isRegisterMode = false;
 let currentUser = localStorage.getItem('family_current_user') || null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadCloudData(); checkLoginState();
-    setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 6000);
+    // Okamžitá kontrola změn každé 3 vteřiny
+    setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 3000);
 });
 
 async function loadCloudData() {
     try {
-        const res = await fetch(URL, { headers: { "Authorization": `token ${GH_TOKEN}` } });
-        if (res.ok) { const json = await res.json(); fileSha = json.sha; const content = decodeURIComponent(escape(atob(json.content))); appData = JSON.parse(content); }
-    } catch (e) { console.log("První načítání dat..."); }
-    if (!appData.users) appData.users = []; if (!appData.shoppingItems) appData.shoppingItems = [];
+        const res = await fetch(DB_URL);
+        if (res.ok) { const data = await res.json(); if (data) appData = data; }
+    } catch (e) { console.log("Načítání cloudu..."); }
+    if (!appData.users) appData.users = {}; if (!appData.shoppingItems) appData.shoppingItems = {};
 }
 
 async function saveCloudData() {
-    try {
-        const rawContent = unescape(encodeURIComponent(JSON.stringify(appData))); const base64Content = btoa(rawContent);
-        const body = { message: "Aktualizace nákupního seznamu", content: base64Content }; if (fileSha) body.sha = fileSha;
-        const res = await fetch(URL, { method: 'PUT', headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        if (res.ok) { const json = await res.json(); fileSha = json.content.sha; }
-    } catch (e) { console.log("Chyba ukládání"); }
+    try { await fetch(DB_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) }); } 
+    catch (e) { console.log("Chyba synchronizace."); }
 }
 
 function checkLoginState() {
@@ -117,11 +109,11 @@ async function handleAuth() {
     if (name.toLowerCase() === 'admin' && pass === 'admin') { currentUser = 'admin'; localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState(); return; }
     await loadCloudData();
     if (isRegisterMode) {
-        if (name.toLowerCase() === 'admin' || appData.users.some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
-        appData.users.push({ id: Date.now(), username: name, password: btoa(pass) });
+        if (name.toLowerCase() === 'admin' || Object.values(appData.users).some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
+        const id = Date.now(); appData.users[id] = { id: id, username: name, password: btoa(pass) };
         currentUser = name; localStorage.setItem('family_current_user', currentUser); await saveCloudData(); 
     } else {
-        const u = appData.users.find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
+        const u = Object.values(appData.users).find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
         if (!u) { alert('Chyba jména/hesla.'); return; } currentUser = u.username; localStorage.setItem('family_current_user', currentUser);
     }
     clearAuth(); checkLoginState();
@@ -132,48 +124,44 @@ function logout() { currentUser = null; localStorage.removeItem('family_current_
 
 function renderUserList() {
     const el = document.getElementById('user-list'); el.innerHTML = '';
-    appData.users.forEach((u, idx) => {
-        const li = document.createElement('li'); li.className = 'user-item';
-        li.innerHTML = `<div><strong>${u.username}</strong><br><span style="font-size:0.8rem;color:#64748b;">Heslo: ${atob(u.password)}</span></div><button class="logout-btn" onclick="deleteUser(${idx})">❌</button>`;
+    Object.keys(appData.users).forEach((key) => {
+        const u = appData.users[key]; const li = document.createElement('li'); li.className = 'user-item';
+        li.innerHTML = `<div><strong>${u.username}</strong><br><span style="font-size:0.8rem;color:#64748b;">Heslo: ${atob(u.password)}</span></div><button class="logout-btn" onclick="deleteUser('${key}')">❌</button>`;
         el.appendChild(li);
     });
 }
 
-async function deleteUser(idx) { if (confirm('Smazat?')) { appData.users.splice(idx, 1); await saveCloudData(); renderUserList(); } }
+async function deleteUser(key) { if (confirm('Smazat?')) { delete appData.users[key]; await saveCloudData(); renderUserList(); } }
 function changeCount(amt) { const input = document.getElementById('count-input'); let val = (parseInt(input.value) || 1) + amt; if (val < 1) val = 1; input.value = val; }
 function getTime() { const n = new Date(); return `${n.getDate()}. ${n.getMonth() + 1}. v ${n.getHours()}:${n.getMinutes().toString().padStart(2, '0')}`; }
 
 async function addItem() {
     const nIn = document.getElementById('item-input'); const cIn = document.getElementById('count-input'); const name = nIn.value.trim(); if (!name) return;
-    await loadCloudData();
-    appData.shoppingItems.push({ id: Date.now(), name: name, count: cIn.value + 'x', status: 'active', added_by: currentUser, added_at: getTime(), action_by: '', action_at: '', comment: '' });
+    await loadCloudData(); const id = Date.now();
+    appData.shoppingItems[id] = { id: id, name: name, count: cIn.value + 'x', status: 'active', added_by: currentUser, added_at: getTime(), action_by: '', action_at: '', comment: '' };
     nIn.value = ''; cIn.value = '1'; nIn.focus(); await saveCloudData(); renderList();
 }
 
 async function markAsBought(id) {
-    await loadCloudData();
-    appData.shoppingItems = appData.shoppingItems.map(i => {
-        if (i.id === id) { const isB = i.status === 'bought'; return { ...i, status: isB ? 'active' : 'bought', action_by: isB ? '' : currentUser, action_at: isB ? '' : getTime() }; } return i;
-    });
+    await loadCloudData(); if (!appData.shoppingItems[id]) return; const isB = appData.shoppingItems[id].status === 'bought';
+    appData.shoppingItems[id].status = isB ? 'active' : 'bought'; appData.shoppingItems[id].action_by = isB ? '' : currentUser; appData.shoppingItems[id].action_at = isB ? '' : getTime();
     await saveCloudData(); renderList();
 }
 
 async function markAsDeleted(id) {
-    await loadCloudData(); const item = appData.shoppingItems.find(i => i.id === id); if (!item) return;
-    if (item.status === 'deleted') {
-        appData.shoppingItems = appData.shoppingItems.map(i => i.id === id ? { ...i, status: 'active', action_by: '', action_at: '', comment: '' } : i);
-    } else {
-        const msg = prompt(`Důvod odebrání "${item.name}"?:`) || '';
-        appData.shoppingItems = appData.shoppingItems.map(i => i.id === id ? { ...i, status: 'deleted', action_by: currentUser, action_at: getTime(), comment: msg.trim() } : i);
-    }
+    await loadCloudData(); if (!appData.shoppingItems[id]) return; const item = appData.shoppingItems[id];
+    if (item.status === 'deleted') { appData.shoppingItems[id].status = 'active'; appData.shoppingItems[id].action_by = ''; appData.shoppingItems[id].action_at = ''; appData.shoppingItems[id].comment = ''; } 
+    else { const msg = prompt(`Důvod odebrání "${item.name}"?:`) || ''; appData.shoppingItems[id].status = 'deleted'; appData.shoppingItems[id].action_by = currentUser; appData.shoppingItems[id].action_at = getTime(); appData.shoppingItems[id].comment = msg.trim(); }
     await saveCloudData(); renderList();
 }
 
-async function clearAllArchive() { if (confirm('Trvale smazat?')) { await loadCloudData(); appData.shoppingItems = appData.shoppingItems.filter(i => i.status === 'active'); await saveCloudData(); renderList(); } }
+async function clearAllArchive() {
+    if (confirm('Trvale smazat?')) { await loadCloudData(); Object.keys(appData.shoppingItems).forEach(k => { if (appData.shoppingItems[k].status !== 'active') delete appData.shoppingItems[k]; }); await saveCloudData(); renderList(); }
+}
 
 function renderList() {
     const listEl = document.getElementById('shopping-list'); const clearEl = document.getElementById('clear-container'); listEl.innerHTML = '';
-    const sorted = [...appData.shoppingItems].sort((a, b) => { const s = { 'active': 1, 'bought': 2, 'deleted': 3 }; return s[a.status] - s[b.status]; });
+    const sorted = Object.values(appData.shoppingItems).sort((a, b) => { const s = { 'active': 1, 'bought': 2, 'deleted': 3 }; return s[a.status] - s[b.status]; });
     sorted.forEach(i => {
         const li = document.createElement('li'); li.className = `shopping-item ${i.status}`;
         let meta = `✍️ ${i.added_by} (${i.added_at})`;
@@ -183,7 +171,7 @@ function renderList() {
         li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${i.name}</span><span class="item-count">${i.count}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${btns}</div>`;
         listEl.appendChild(li);
     });
-    clearEl.style.display = appData.shoppingItems.some(i => i.status !== 'active') ? 'block' : 'none';
+    clearEl.style.display = Object.values(appData.shoppingItems).some(i => i.status !== 'active') ? 'block' : 'none';
 }
 document.getElementById('item-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') addItem(); });
 </script>
