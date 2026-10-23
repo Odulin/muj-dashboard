@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rodinný Nákup</title>
+<title>Nákup</title>
 <style>
 :root { --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --prime: #4f46e5; --border: #cbd5e1; }
 body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
@@ -60,16 +60,13 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 </div>
 </div>
 <script>
-// Unikátní cloudový trezor vygenerovaný speciálně pro vaši rodinu
 const BIN_URL = "https://jsonbin.io";
 let appData = { users: [], shoppingItems: [] };
 let isRegisterMode = false;
 let currentUser = localStorage.getItem('family_current_user') || null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadCloudData();
-    checkLoginState();
-    // Automatická kontrola nových položek v obchodě každé 4 vteřiny
+    await loadCloudData(); checkLoginState();
     setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 4000);
 });
 
@@ -77,19 +74,14 @@ async function loadCloudData() {
     try {
         const res = await fetch(`${BIN_URL}/latest`, { headers: { "X-Bin-Meta": "false" } });
         if (res.ok) { const data = await res.json(); if (data) appData = data; }
-    } catch (e) { console.log("Načítání dat..."); }
-    if (!appData.users) appData.users = [];
-    if (!appData.shoppingItems) appData.shoppingItems = [];
+    } catch (e) { console.log("Chyba stahování"); }
+    if (!appData.users) appData.users = []; if (!appData.shoppingItems) appData.shoppingItems = [];
 }
 
 async function saveCloudData() {
     try {
-        await fetch(BIN_URL, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(appData)
-        });
-    } catch (e) { console.log("Chyba při synchronizaci se serverem."); }
+        await fetch(BIN_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) });
+    } catch (e) { console.log("Chyba nahrávání"); }
 }
 
 function checkLoginState() {
@@ -115,16 +107,19 @@ async function handleAuth() {
     if (!name || !pass) { alert('Vyplňte údaje.'); return; }
     if (name.toLowerCase() === 'admin' && pass === 'admin') { currentUser = 'admin'; localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState(); return; }
     
+    await loadCloudData(); // Klíčové: Před ověřením/zápisem stáhneme nejnovější lidi z internetu
+    
     if (isRegisterMode) {
         if (name.toLowerCase() === 'admin' || appData.users.some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
         appData.users.push({ id: Date.now(), username: name, password: btoa(pass) });
-        currentUser = name;
+        currentUser = name; localStorage.setItem('family_current_user', currentUser);
         await saveCloudData(); 
     } else {
         const u = appData.users.find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
-        if (!u) { alert('Chyba jména/hesla. Nezapomněli jste se nejdříve zaregistrovat?'); return; } currentUser = u.username;
+        if (!u) { alert('Chyba jména/hesla.'); return; } 
+        currentUser = u.username; localStorage.setItem('family_current_user', currentUser);
     }
-    localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState();
+    clearAuth(); checkLoginState();
 }
 
 function clearAuth() { document.getElementById('username-input').value = ''; document.getElementById('password-input').value = ''; }
@@ -139,17 +134,19 @@ function renderUserList() {
     });
 }
 
-async function deleteUser(idx) { if (confirm('Smazat uživatele?')) { appData.users.splice(idx, 1); await saveCloudData(); renderUserList(); } }
+async function deleteUser(idx) { if (confirm('Smazat?')) { appData.users.splice(idx, 1); await saveCloudData(); renderUserList(); } }
 function changeCount(amt) { const input = document.getElementById('count-input'); let val = (parseInt(input.value) || 1) + amt; if (val < 1) val = 1; input.value = val; }
 function getTime() { const n = new Date(); return `${n.getDate()}. ${n.getMonth() + 1}. v ${n.getHours()}:${n.getMinutes().toString().padStart(2, '0')}`; }
 
 async function addItem() {
     const nIn = document.getElementById('item-input'); const cIn = document.getElementById('count-input'); const name = nIn.value.trim(); if (!name) return;
+    await loadCloudData();
     appData.shoppingItems.push({ id: Date.now(), name: name, count: cIn.value + 'x', status: 'active', added_by: currentUser, added_at: getTime(), action_by: '', action_at: '', comment: '' });
     nIn.value = ''; cIn.value = '1'; nIn.focus(); await saveCloudData(); renderList();
 }
 
 async function markAsBought(id) {
+    await loadCloudData();
     appData.shoppingItems = appData.shoppingItems.map(i => {
         if (i.id === id) { const isB = i.status === 'bought'; return { ...i, status: isB ? 'active' : 'bought', action_by: isB ? '' : currentUser, action_at: isB ? '' : getTime() }; } return i;
     });
@@ -157,7 +154,7 @@ async function markAsBought(id) {
 }
 
 async function markAsDeleted(id) {
-    const item = appData.shoppingItems.find(i => i.id === id);
+    await loadCloudData(); const item = appData.shoppingItems.find(i => i.id === id);
     if (item.status === 'deleted') {
         appData.shoppingItems = appData.shoppingItems.map(i => i.id === id ? { ...i, status: 'active', action_by: '', action_at: '', comment: '' } : i);
     } else {
@@ -167,7 +164,7 @@ async function markAsDeleted(id) {
     await saveCloudData(); renderList();
 }
 
-async function clearAllArchive() { if (confirm('Trvale smazat?')) { appData.shoppingItems = appData.shoppingItems.filter(i => i.status === 'active'); await saveCloudData(); renderList(); } }
+async function clearAllArchive() { if (confirm('Trvale smazat?')) { await loadCloudData(); appData.shoppingItems = appData.shoppingItems.filter(i => i.status === 'active'); await saveCloudData(); renderList(); } }
 
 function renderList() {
     const listEl = document.getElementById('shopping-list'); const clearEl = document.getElementById('clear-container'); listEl.innerHTML = '';
