@@ -5,12 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Můj Vibe Dashboard</title>
     <style>
+        /* Definice barevných témat */
         :root {
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --text-color: #f8fafc;
             --accent-color: #38bdf8;
             --success-color: #4ade80;
+            --input-bg: #0f172a;
+            --input-border: #475569;
+            --task-bg: #334155;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-color: #0f172a;
+            --accent-color: #0284c7;
+            --success-color: #16a34a;
+            --input-bg: #f8fafc;
+            --input-border: #cbd5e1;
+            --task-bg: #e2e8f0;
         }
 
         body {
@@ -22,16 +37,35 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         header {
             margin-bottom: 30px;
             text-align: center;
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
         }
 
         h1 {
             color: var(--accent-color);
             margin-bottom: 5px;
+        }
+
+        /* Přepínač témat */
+        .theme-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--input-border);
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .container {
@@ -47,11 +81,12 @@
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s;
         }
 
         h2 {
             margin-top: 0;
-            border-bottom: 2px solid #334155;
+            border-bottom: 2px solid var(--input-border);
             padding-bottom: 10px;
         }
 
@@ -65,19 +100,24 @@
             flex: 1;
             padding: 8px;
             border-radius: 6px;
-            border: 1px solid #475569;
-            background-color: #0f172a;
-            color: white;
+            border: 1px solid var(--input-border);
+            background-color: var(--input-bg);
+            color: var(--text-color);
         }
 
         button {
             background-color: var(--accent-color);
-            color: #0f172a;
+            color: white;
             border: none;
             padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
+        }
+
+        /* Oprava kontrastu textu na tlačítku v dark modu */
+        :root:not([data-theme="light"]) button {
+            color: #0f172a;
         }
 
         button:hover {
@@ -92,12 +132,17 @@
 
         li {
             padding: 8px;
-            background: #334155;
+            background: var(--task-bg);
             margin-bottom: 5px;
             border-radius: 4px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        li span {
+            cursor: pointer;
+            flex: 1;
         }
 
         .completed {
@@ -133,6 +178,7 @@
 <body>
 
     <header>
+        <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Světlý režim</button>
         <h1>Vibe Coding Dashboard 🚀</h1>
         <p>Vaše první aplikace běžící plně v prohlížeči</p>
     </header>
@@ -162,30 +208,63 @@
         <div class="card">
             <h2>Vibe check / Motivace</h2>
             <div class="quote-box" id="quote-box">"Nejlepší způsob, jak začít, je přestat mluvit a začít dělat."</div>
-            <button onclick="newQuote()" style="width: 100%; margin-top: 15px; background-color: var(--success-color);">Nový citát</button>
+            <button onclick="newQuote()" style="width: 100%; margin-top: 15px; background-color: var(--success-color); color: white;">Nový citát</button>
         </div>
     </div>
 
     <script>
+        // --- PAMĚŤ A UKLÁDÁNÍ (localStorage) ---
+        let todos = JSON.parse(localStorage.getItem('todos')) || [];
+
+        // Inicializace aplikace při načtení
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTodos();
+            initTheme();
+        });
+
+        function saveTodos() {
+            localStorage.setItem('todos', JSON.stringify(todos));
+        }
+
         // --- TO-DO LIST LOGIKA ---
         function addTodo() {
             const input = document.getElementById('todo-input');
             const text = input.value.trim();
             if (!text) return;
 
-            const ul = document.getElementById('todo-list');
-            const li = document.createElement('li');
-            
-            li.innerHTML = `
-                <span onclick="this.parentElement.classList.toggle('completed')">${text}</span>
-                <button onclick="this.parentElement.remove()" style="padding: 2px 8px; background: #ef4444; color: white;">X</button>
-            `;
-            
-            ul.appendChild(li);
+            todos.push({ text: text, completed: false });
+            saveTodos();
+            renderTodos();
             input.value = '';
         }
 
-        // Povolení přidávání enterem
+        function toggleTodo(index) {
+            todos[index].completed = !todos[index].completed;
+            saveTodos();
+            renderTodos();
+        }
+
+        function deleteTodo(index, event) {
+            event.stopPropagation(); // Zabrání spuštění toggleTodo při kliknutí na X
+            todos.splice(index, 1);
+            saveTodos();
+            renderTodos();
+        }
+
+        function renderTodos() {
+            const ul = document.getElementById('todo-list');
+            ul.innerHTML = '';
+            
+            todos.forEach((todo, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="${todo.completed ? 'completed' : ''}" onclick="toggleTodo(${index})">${todo.text}</span>
+                    <button onclick="deleteTodo(${index}, event)" style="padding: 2px 8px; background: #ef4444; color: white;">X</button>
+                `;
+                ul.appendChild(li);
+            });
+        }
+
         document.getElementById('todo-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') addTodo();
         });
@@ -227,7 +306,8 @@
             timerId = null;
             timeLeft = 25 * 60;
             updateTimerDisplay();
-            document.getElementById('timer-btn').innerText = 'Spustit';
+            const btn = document.getElementById('timer-btn');
+            if(btn) btn.innerText = 'Spustit';
         }
 
         // --- CITÁTY LOGIKA ---
@@ -243,6 +323,23 @@
             const randomIndex = Math.floor(Math.random() * quotes.length);
             document.getElementById('quote-box').innerText = quotes[randomIndex];
         }
-    </script>
-</body>
-</html>
+
+        // --- PŘEPÍNÁNÍ TÉMATU ---
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeButton(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeButton(newTheme);
+        }
+
+        function updateThemeButton(theme) {
+            const btn = document.getElementById('theme-btn');
+            btn.innerText = theme === 'light' ? '🌙 Tmavý režim' : '☀️ Světlý režim';
+        }
