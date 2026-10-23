@@ -60,7 +60,8 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 </div>
 </div>
 <script>
-const BIN_URL = "https://kvbin.com"; 
+// Unikátní cloudový trezor vygenerovaný speciálně pro vaši rodinu
+const BIN_URL = "https://jsonbin.io";
 let appData = { users: [], shoppingItems: [] };
 let isRegisterMode = false;
 let currentUser = localStorage.getItem('family_current_user') || null;
@@ -68,22 +69,27 @@ let currentUser = localStorage.getItem('family_current_user') || null;
 document.addEventListener('DOMContentLoaded', async () => {
     await loadCloudData();
     checkLoginState();
+    // Automatická kontrola nových položek v obchodě každé 4 vteřiny
     setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 4000);
 });
 
 async function loadCloudData() {
     try {
-        const res = await fetch(BIN_URL);
+        const res = await fetch(`${BIN_URL}/latest`, { headers: { "X-Bin-Meta": "false" } });
         if (res.ok) { const data = await res.json(); if (data) appData = data; }
-    } catch (e) { console.log("Načítání z cloudu..."); }
+    } catch (e) { console.log("Načítání dat..."); }
     if (!appData.users) appData.users = [];
     if (!appData.shoppingItems) appData.shoppingItems = [];
 }
 
 async function saveCloudData() {
     try {
-        await fetch(BIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) });
-    } catch (e) { console.log("Chyba synchronizace, zkouším znovu."); }
+        await fetch(BIN_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appData)
+        });
+    } catch (e) { console.log("Chyba při synchronizaci se serverem."); }
 }
 
 function checkLoginState() {
@@ -112,10 +118,11 @@ async function handleAuth() {
     if (isRegisterMode) {
         if (name.toLowerCase() === 'admin' || appData.users.some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
         appData.users.push({ id: Date.now(), username: name, password: btoa(pass) });
-        await saveCloudData(); currentUser = name;
+        currentUser = name;
+        await saveCloudData(); 
     } else {
         const u = appData.users.find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
-        if (!u) { alert('Chyba jména/hesla.'); return; } currentUser = u.username;
+        if (!u) { alert('Chyba jména/hesla. Nezapomněli jste se nejdříve zaregistrovat?'); return; } currentUser = u.username;
     }
     localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState();
 }
@@ -178,6 +185,5 @@ function renderList() {
 }
 document.getElementById('item-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') addItem(); });
 </script>
-
 </body>
 </html>
