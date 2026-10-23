@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Můj Vibe Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-color: #38bdf8;
+            --success-color: #4ade80;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        /* To-Do List Styles */
+        .todo-input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background-color: #0f172a;
+            color: white;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #0f172a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+
+        li {
+            padding: 8px;
+            background: #334155;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        /* Timer Styles */
+        .timer-display {
+            font-size: 3rem;
+            text-align: center;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Quote Styles */
+        .quote-box {
+            font-style: italic;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Vibe Coding Dashboard 🚀</h1>
+        <p>Vaše první aplikace běžící plně v prohlížeči</p>
+    </header>
+
+    <div class="container">
+        <!-- Karta: Úkoly -->
+        <div class="card">
+            <h2>Dnešní úkoly</h2>
+            <div class="todo-input-group">
+                <input type="text" id="todo-input" placeholder="Co dnes uděláte?">
+                <button onclick="addTodo()">Přidat</button>
+            </div>
+            <ul id="todo-list"></ul>
+        </div>
+
+        <!-- Karta: Časovač -->
+        <div class="card">
+            <h2>Focus Časovač</h2>
+            <div class="timer-display" id="timer-display">25:00</div>
+            <div class="timer-controls">
+                <button onclick="toggleTimer()" id="timer-btn">Spustit</button>
+                <button onclick="resetTimer()" style="background-color: #64748b; color: white;">Reset</button>
+            </div>
+        </div>
+
+        <!-- Karta: Motivace -->
+        <div class="card">
+            <h2>Vibe check / Motivace</h2>
+            <div class="quote-box" id="quote-box">"Nejlepší způsob, jak začít, je přestat mluvit a začít dělat."</div>
+            <button onclick="newQuote()" style="width: 100%; margin-top: 15px; background-color: var(--success-color);">Nový citát</button>
+        </div>
+    </div>
+
+    <script>
+        // --- TO-DO LIST LOGIKA ---
+        function addTodo() {
+            const input = document.getElementById('todo-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const ul = document.getElementById('todo-list');
+            const li = document.createElement('li');
+            
+            li.innerHTML = `
+                <span onclick="this.parentElement.classList.toggle('completed')">${text}</span>
+                <button onclick="this.parentElement.remove()" style="padding: 2px 8px; background: #ef4444; color: white;">X</button>
+            `;
+            
+            ul.appendChild(li);
+            input.value = '';
+        }
+
+        // Povolení přidávání enterem
+        document.getElementById('todo-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addTodo();
+        });
+
+        // --- ČASOVAČ LOGIKA ---
+        let timeLeft = 25 * 60;
+        let timerId = null;
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer-display').innerText = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('timer-btn');
+            if (timerId) {
+                clearInterval(timerId);
+                timerId = null;
+                btn.innerText = 'Spustit';
+            } else {
+                btn.innerText = 'Pauza';
+                timerId = setInterval(() => {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(timerId);
+                        alert('Čas vypršel! Dejte si pauzu.');
+                        resetTimer();
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerId);
+            timerId = null;
+            timeLeft = 25 * 60;
+            updateTimerDisplay();
+            document.getElementById('timer-btn').innerText = 'Spustit';
+        }
+
+        // --- CITÁTY LOGIKA ---
+        const quotes = [
+            '"Nejlepší způsob, jak začít, je přestat mluvit a začít dělat."',
+            '"Chyby jsou důkazem toho, že se snažíte."',
+            '"Kód funguje tak, jak jste ho napsali, ne jak jste si mysleli."',
+            '"Jednoduchost je nejvyšší sofistikovanost."',
+            '"Vibe coding je o myšlence, ne o syntaxi."'
+        ];
+
+        function newQuote() {
+            const randomIndex = Math.floor(Math.random() * quotes.length);
+            document.getElementById('quote-box').innerText = quotes[randomIndex];
+        }
+    </script>
+</body>
+</html>
