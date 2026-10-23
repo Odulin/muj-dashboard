@@ -2,8 +2,7 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nákup</title>
-<script src="https://jsdelivr.net"></script>
+<title>Rodinný Nákup</title>
 <style>
 :root { --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --prime: #4f46e5; --border: #cbd5e1; }
 body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
@@ -48,7 +47,7 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 <h2 id="auth-title" style="margin:0;font-size:1.2rem;">Přihlášení</h2>
 <input type="text" id="username-input" placeholder="Jméno"><input type="password" id="password-input" placeholder="Heslo">
 <button class="primary-btn" id="auth-submit-btn" onclick="handleAuth()">Přihlásit se</button>
-<button class="secondary-btn" id="auth-toggle-btn" onclick="toggleAuthMode()">Registrace</button>
+<button class="secondary-btn" id="auth-toggle-btn" onclick="toggleAuthMode()">Nemáte účet? Registrace</button>
 </div>
 <div id="main-app-section" style="display:none;">
 <div class="user-status" id="status-box"><span>👤: <span id="current-user-display"></span></span><button class="logout-btn" onclick="logout()">Odhlásit</button></div>
@@ -61,30 +60,32 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 </div>
 </div>
 <script>
-const SUPABASE_URL = "https://hyzidgahsjfbcvnsqooe.supabase.co/rest/v1/";
-const SUPABASE_ANON_KEY = "sb_publishable_A8hqoD7YSDF95LgPy6LZNA_pvuW3P6m"; // Sem vložte klíč z obrázku
-let shoppingItems = []; let users = []; let isRegisterMode = false; let _supabase = null;
+const BIN_URL = "https://kvbin.com"; 
+let appData = { users: [], shoppingItems: [] };
+let isRegisterMode = false;
 let currentUser = localStorage.getItem('family_current_user') || null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    if (typeof supabase === 'undefined') return;
-    _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    await loadUsers(); await loadItems(); checkLoginState(); setupRealtime();
+    await loadCloudData();
+    checkLoginState();
+    setInterval(async () => { if (currentUser) { await loadCloudData(); renderList(); if (currentUser === 'admin') renderUserList(); } }, 4000);
 });
 
-function setupRealtime() {
-    if (!_supabase) return;
-    _supabase.channel('db-changes').on('postgres_changes', { event: '*', filter: 'table=eq.family_shopping_list' }, async () => {
-        await loadItems(); renderList();
-    }).subscribe();
+async function loadCloudData() {
+    try {
+        const res = await fetch(BIN_URL);
+        if (res.ok) { const data = await res.json(); if (data) appData = data; }
+    } catch (e) { console.log("Načítání z cloudu..."); }
+    if (!appData.users) appData.users = [];
+    if (!appData.shoppingItems) appData.shoppingItems = [];
 }
-async function loadUsers() {
-    if (!_supabase) return; const { data } = await _supabase.from('family_users').select('*'); users = data || [];
-    if (currentUser === 'admin') renderUserList();
+
+async function saveCloudData() {
+    try {
+        await fetch(BIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appData) });
+    } catch (e) { console.log("Chyba synchronizace, zkouším znovu."); }
 }
-async function loadItems() {
-    if (!_supabase) return; const { data } = await _supabase.from('family_shopping_list').select('*'); shoppingItems = data || [];
-}
+
 function checkLoginState() {
     const authBox = document.getElementById('auth-section'); const mainBox = document.getElementById('main-app-section');
     const adminBox = document.getElementById('admin-section'); const statBox = document.getElementById('status-box');
@@ -95,62 +96,75 @@ function checkLoginState() {
         renderList();
     } else { authBox.style.display = 'flex'; mainBox.style.display = 'none'; adminBox.style.display = 'none'; }
 }
+
 function toggleAuthMode() {
     isRegisterMode = !isRegisterMode;
     document.getElementById('auth-title').innerText = isRegisterMode ? 'Registrace' : 'Přihlášení';
     document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Vytvořit účet' : 'Přihlásit se';
     document.getElementById('auth-toggle-btn').innerText = isRegisterMode ? 'Zpět na Přihlášení' : 'Nemáte účet? Registrace';
 }
+
 async function handleAuth() {
     const name = document.getElementById('username-input').value.trim(); const pass = document.getElementById('password-input').value;
     if (!name || !pass) { alert('Vyplňte údaje.'); return; }
     if (name.toLowerCase() === 'admin' && pass === 'admin') { currentUser = 'admin'; localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState(); return; }
+    
     if (isRegisterMode) {
-        if (name.toLowerCase() === 'admin' || users.some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
-        if (_supabase) { await _supabase.from('family_users').insert([{ username: name, password: btoa(pass) }]); await loadUsers(); currentUser = name; }
+        if (name.toLowerCase() === 'admin' || appData.users.some(u => u.username.toLowerCase() === name.toLowerCase())) { alert('Jméno nelze použít.'); return; }
+        appData.users.push({ id: Date.now(), username: name, password: btoa(pass) });
+        await saveCloudData(); currentUser = name;
     } else {
-        const u = users.find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
+        const u = appData.users.find(u => u.username.toLowerCase() === name.toLowerCase() && u.password === btoa(pass));
         if (!u) { alert('Chyba jména/hesla.'); return; } currentUser = u.username;
     }
     localStorage.setItem('family_current_user', currentUser); clearAuth(); checkLoginState();
 }
+
 function clearAuth() { document.getElementById('username-input').value = ''; document.getElementById('password-input').value = ''; }
 function logout() { currentUser = null; localStorage.removeItem('family_current_user'); checkLoginState(); }
+
 function renderUserList() {
     const el = document.getElementById('user-list'); el.innerHTML = '';
-    users.forEach((u) => {
+    appData.users.forEach((u, idx) => {
         const li = document.createElement('li'); li.className = 'user-item';
-        li.innerHTML = `<div><strong>${u.username}</strong><br><span style="font-size:0.8rem;color:#64748b;">Heslo: ${atob(u.password)}</span></div><button class="logout-btn" onclick="deleteUser(${u.id})">❌</button>`;
+        li.innerHTML = `<div><strong>${u.username}</strong><br><span style="font-size:0.8rem;color:#64748b;">Heslo: ${atob(u.password)}</span></div><button class="logout-btn" onclick="deleteUser(${idx})">❌</button>`;
         el.appendChild(li);
     });
 }
-async function deleteUser(id) { if (confirm('Smazat uživatele?') && _supabase) { await _supabase.from('family_users').delete().eq('id', id); await loadUsers(); } }
+
+async function deleteUser(idx) { if (confirm('Smazat uživatele?')) { appData.users.splice(idx, 1); await saveCloudData(); renderUserList(); } }
 function changeCount(amt) { const input = document.getElementById('count-input'); let val = (parseInt(input.value) || 1) + amt; if (val < 1) val = 1; input.value = val; }
 function getTime() { const n = new Date(); return `${n.getDate()}. ${n.getMonth() + 1}. v ${n.getHours()}:${n.getMinutes().toString().padStart(2, '0')}`; }
+
 async function addItem() {
-    const nIn = document.getElementById('item-input'); const cIn = document.getElementById('count-input'); const name = nIn.value.trim();
-    if (!name || !_supabase) return;
-    await _supabase.from('family_shopping_list').insert([{ name: name, count: cIn.value + 'x', status: 'active', added_by: currentUser, added_at: getTime(), action_by: '', action_at: '', comment: '' }]);
-    nIn.value = ''; cIn.value = '1'; nIn.focus(); await loadItems(); renderList();
+    const nIn = document.getElementById('item-input'); const cIn = document.getElementById('count-input'); const name = nIn.value.trim(); if (!name) return;
+    appData.shoppingItems.push({ id: Date.now(), name: name, count: cIn.value + 'x', status: 'active', added_by: currentUser, added_at: getTime(), action_by: '', action_at: '', comment: '' });
+    nIn.value = ''; cIn.value = '1'; nIn.focus(); await saveCloudData(); renderList();
 }
+
 async function markAsBought(id) {
-    const item = shoppingItems.find(i => i.id === id); const isB = item.status === 'bought'; if (!_supabase) return;
-    await _supabase.from('family_shopping_list').update({ status: isB ? 'active' : 'bought', action_by: isB ? '' : currentUser, action_at: isB ? '' : getTime() }).eq('id', id);
-    await loadItems(); renderList();
+    appData.shoppingItems = appData.shoppingItems.map(i => {
+        if (i.id === id) { const isB = i.status === 'bought'; return { ...i, status: isB ? 'active' : 'bought', action_by: isB ? '' : currentUser, action_at: isB ? '' : getTime() }; } return i;
+    });
+    await saveCloudData(); renderList();
 }
+
 async function markAsDeleted(id) {
-    const item = shoppingItems.find(i => i.id === id); if (!_supabase) return;
-    if (item.status === 'deleted') { await _supabase.from('family_shopping_list').update({ status: 'active', action_by: '', action_at: '', comment: '' }).eq('id', id); } 
-    else {
+    const item = appData.shoppingItems.find(i => i.id === id);
+    if (item.status === 'deleted') {
+        appData.shoppingItems = appData.shoppingItems.map(i => i.id === id ? { ...i, status: 'active', action_by: '', action_at: '', comment: '' } : i);
+    } else {
         const msg = prompt(`Důvod odebrání "${item.name}"?:`) || '';
-        await _supabase.from('family_shopping_list').update({ status: 'deleted', action_by: currentUser, action_at: getTime(), comment: msg.trim() }).eq('id', id);
+        appData.shoppingItems = appData.shoppingItems.map(i => i.id === id ? { ...i, status: 'deleted', action_by: currentUser, action_at: getTime(), comment: msg.trim() } : i);
     }
-    await loadItems(); renderList();
+    await saveCloudData(); renderList();
 }
-async function clearAllArchive() { if (confirm('Trvale smazat zpracované?') && _supabase) { await _supabase.from('family_shopping_list').delete().neq('status', 'active'); await loadItems(); renderList(); } }
+
+async function clearAllArchive() { if (confirm('Trvale smazat?')) { appData.shoppingItems = appData.shoppingItems.filter(i => i.status === 'active'); await saveCloudData(); renderList(); } }
+
 function renderList() {
     const listEl = document.getElementById('shopping-list'); const clearEl = document.getElementById('clear-container'); listEl.innerHTML = '';
-    const sorted = [...shoppingItems].sort((a, b) => { const s = { 'active': 1, 'bought': 2, 'deleted': 3 }; return s[a.status] - s[b.status]; });
+    const sorted = [...appData.shoppingItems].sort((a, b) => { const s = { 'active': 1, 'bought': 2, 'deleted': 3 }; return s[a.status] - s[b.status]; });
     sorted.forEach(i => {
         const li = document.createElement('li'); li.className = `shopping-item ${i.status}`;
         let meta = `✍️ ${i.added_by} (${i.added_at})`;
@@ -160,8 +174,10 @@ function renderList() {
         li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${i.name}</span><span class="item-count">${i.count}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${btns}</div>`;
         listEl.appendChild(li);
     });
-    clearEl.style.display = shoppingItems.some(i => i.status !== 'active') ? 'block' : 'none';
+    clearEl.style.display = appData.shoppingItems.some(i => i.status !== 'active') ? 'block' : 'none';
 }
+document.getElementById('item-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') addItem(); });
 </script>
+
 </body>
 </html>
