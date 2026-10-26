@@ -11,6 +11,9 @@ h1 { text-align: center; margin-top: 0; color: var(--prime); }
 .user-status { display: flex; justify-content: space-between; align-items: center; background: #eef2ff; padding: 8px 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; font-weight: bold; }
 .logout-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-weight: bold; }
 .form-container, .auth-container { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.quick-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.quick-pick-btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 10px; background: #eef2ff; color: var(--text); border: 1px solid #c7d2fe; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.9rem; }
+.quick-pick-btn:hover, .quick-pick-btn:focus-visible { background: #e0e7ff; border-color: var(--prime); }
 .inputs-row { display: flex; gap: 10px; }
 input { padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 1rem; outline: none; box-sizing: border-box; }
 #item-input { flex: 2; min-width: 0; }
@@ -52,7 +55,26 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
     <h3 style="margin:0 0 10px 0;">Uživatelé</h3>
     <ul id="admin-users-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px;"></ul>
 </div>
-<div class="form-container"><div class="inputs-row"><input type="text" id="item-input" placeholder="Co koupit?" required>
+<div class="form-container"><div class="quick-picks" role="group" aria-label="Rychlý výběr položky">
+<button class="quick-pick-btn" type="button" data-item="Pečivo"><span aria-hidden="true">🥖</span> Pečivo</button>
+<button class="quick-pick-btn" type="button" data-item="Šunka"><span aria-hidden="true">🥓</span> Šunka</button>
+<button class="quick-pick-btn" type="button" data-item="Sýr"><span aria-hidden="true">🧀</span> Sýr</button>
+<button class="quick-pick-btn" type="button" data-item="Vejce"><span aria-hidden="true">🥚</span> Vejce</button>
+<button class="quick-pick-btn" type="button" data-item="Maso"><span aria-hidden="true">🍗</span> Maso</button>
+<button class="quick-pick-btn" type="button" data-item="Tatarka"><span aria-hidden="true">🥣</span> Tatarka</button>
+<button class="quick-pick-btn" type="button" data-item="Olej"><span aria-hidden="true">🫒</span> Olej</button>
+<button class="quick-pick-btn" type="button" data-item="Jogurt"><span aria-hidden="true">🥛</span> Jogurt</button>
+<button class="quick-pick-btn" type="button" data-item="Mléko"><span aria-hidden="true">🥛</span> Mléko</button>
+<button class="quick-pick-btn" type="button" data-item="Majonéza"><span aria-hidden="true">🥫</span> Majonéza</button>
+<button class="quick-pick-btn" type="button" data-item="Tvaroh"><span aria-hidden="true">🍶</span> Tvaroh</button>
+<button class="quick-pick-btn" type="button" data-item="Česnek"><span aria-hidden="true">🧄</span> Česnek</button>
+<button class="quick-pick-btn" type="button" data-item="Cibule"><span aria-hidden="true">🧅</span> Cibule</button>
+<button class="quick-pick-btn" type="button" data-item="Brambory"><span aria-hidden="true">🥔</span> Brambory</button>
+<button class="quick-pick-btn" type="button" data-item="Těstoviny"><span aria-hidden="true">🍝</span> Těstoviny</button>
+<button class="quick-pick-btn" type="button" data-item="Ubrousky"><span aria-hidden="true">🧻</span> Ubrousky</button>
+<button class="quick-pick-btn" type="button" data-item="Ústní voda"><span aria-hidden="true">🪥</span> Ústní voda</button>
+<button class="quick-pick-btn" type="button" data-item="Mýdlo"><span aria-hidden="true">🧼</span> Mýdlo</button>
+</div><div class="inputs-row"><input type="text" id="item-input" placeholder="Co koupit?" required>
 <div class="counter-group"><button class="counter-btn" onclick="changeCount(-1)">-</button><input type="number" id="count-input" value="1" min="1"><button class="counter-btn" onclick="changeCount(1)">+</button></div></div>
 <button class="primary-btn" onclick="addItem()">Přidat na seznam</button></div>
 <ul class="shopping-list" id="shopping-list"></ul>
@@ -441,6 +463,14 @@ function renderList() {
 
 document.getElementById('item-input').addEventListener('keypress', function (e) {
     if (e.key === 'Enter') addItem();
+});
+
+document.querySelectorAll('.quick-pick-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const itemInput = document.getElementById('item-input');
+        itemInput.value = button.dataset.item;
+        itemInput.focus();
+    });
 });
 </script>
 </body>
