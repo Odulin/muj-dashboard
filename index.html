@@ -36,6 +36,12 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 .shopping-item.bought .item-name { text-decoration: line-through; color: #166534; }
 .shopping-item.deleted { background: #fef2f2; border: 1px dashed #fca5a5; }
 .shopping-item.deleted .item-name { text-decoration: line-through; color: #991b1b; opacity: 0.6; }
+.shopping-item.done { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.shopping-item.done .item-name { text-decoration: line-through; color: #166534; }
+.shopping-item.cancelled { background: #fef2f2; border: 1px dashed #fca5a5; }
+.shopping-item.cancelled .item-name { text-decoration: line-through; color: #991b1b; opacity: 0.7; }
+.chores-section { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 18px; }
+.chores-section h2 { margin: 0 0 14px; font-size: 1.2rem; }
 .clear-container { margin-top: 20px; text-align: center; }
 .clear-btn { background: #64748b; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 </style>
@@ -79,6 +85,21 @@ button.secondary-btn { background: none; border: none; color: var(--prime); curs
 <button class="primary-btn" onclick="addItem()">Přidat na seznam</button></div>
 <ul class="shopping-list" id="shopping-list"></ul>
 <div class="clear-container" id="clear-container" style="display:none;"><button class="clear-btn" onclick="clearAllArchive()">Vyčistit vyřízené položky</button></div>
+<section class="chores-section" aria-labelledby="chores-heading">
+<h2 id="chores-heading">🏠 Domácí práce</h2>
+<div class="form-container">
+<div class="quick-picks" role="group" aria-label="Rychlý výběr domácí práce">
+<button class="quick-pick-btn chore-pick-btn" type="button" data-chore="Vysát"><span aria-hidden="true">🧹</span> Vysát</button>
+<button class="quick-pick-btn chore-pick-btn" type="button" data-chore="Uklidit myčku"><span aria-hidden="true">🍽️</span> Uklidit myčku</button>
+<button class="quick-pick-btn chore-pick-btn" type="button" data-chore="Vynést odpadky"><span aria-hidden="true">🗑️</span> Vynést odpadky</button>
+<button class="quick-pick-btn chore-pick-btn" type="button" data-chore="Vytřít podlahu"><span aria-hidden="true">🧽</span> Vytřít podlahu</button>
+</div>
+<input type="text" id="chore-input" maxlength="120" placeholder="Jakou práci je potřeba udělat?" aria-label="Domácí práce">
+<button class="primary-btn" onclick="addChore()">Přidat domácí práci</button>
+</div>
+<ul class="shopping-list" id="chore-list" aria-live="polite"></ul>
+<div class="clear-container" id="clear-chores-container" style="display:none;"><button class="clear-btn" onclick="clearCompletedChores()">Vyčistit vyřízené práce</button></div>
+</section>
 </div>
 </div>
 <script>
@@ -87,7 +108,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_A8hqoD7YSDF95LgPy6LZNA_pvuW3P6m";
 const SESSION_KEY = "family_supabase_session";
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'admin';
-let appData = { shoppingItems: {}, users: [] };
+let appData = { shoppingItems: {}, chores: {}, users: [] };
 let isRegisterMode = false;
 let currentUser = null;
 
@@ -110,19 +131,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await loadUsers();
                 renderAdminUsers();
             }
-            renderList();
+            renderLists();
         } catch (error) {
-            console.error('Načtení nákupního seznamu selhalo:', error);
-            alert(`Nákupní seznam se nepodařilo načíst: ${error.message}`);
+            console.error('Načtení seznamů selhalo:', error);
+            alert(`Seznamy se nepodařilo načíst: ${error.message}`);
         }
     }
     setInterval(async () => {
         if (!currentUser) return;
         try {
             await loadCloudData();
-            renderList();
+            renderLists();
         } catch (error) {
-            console.error('Synchronizace nákupního seznamu selhalo:', error);
+            console.error('Synchronizace seznamů selhala:', error);
         }
     }, 3000);
 });
@@ -180,6 +201,23 @@ async function loadCloudData() {
         action_at: row.action_at || '',
         comment: row.comment || ''
     }]));
+    try {
+        const choreRows = await supabaseRequest('/rest/v1/family_household_chores?select=*&order=id.asc');
+        appData.chores = Object.fromEntries(choreRows.map(row => [row.id, {
+            id: row.id,
+            name: row.name,
+            status: row.status,
+            added_by: row.added_by,
+            added_at: row.added_at,
+            action_by: row.action_by || '',
+            action_at: row.action_at || ''
+        }]));
+    } catch (error) {
+        if (error.message.includes('family_household_chores') || error.message.includes('PGRST205')) {
+            throw new Error(`V Supabase chybí tabulka family_household_chores. Spusťte SQL ze souboru supabase-setup.sql. ${error.message}`);
+        }
+        throw error;
+    }
 }
 
 async function loadUsers() {
@@ -235,7 +273,7 @@ function checkLoginState() {
         statBox.style.background = isAdmin ? '#fef3c7' : '#eef2ff';
         statBox.style.color = isAdmin ? '#78350f' : '#1e293b';
         if (adminPanel) adminPanel.style.display = isAdmin ? 'block' : 'none';
-        renderList();
+        renderLists();
         if (isAdmin) renderAdminUsers();
     } else {
         authBox.style.display = 'flex';
@@ -290,7 +328,7 @@ async function handleAuth() {
             await loadCloudData();
             await loadUsers();
             renderAdminUsers();
-            renderList();
+            renderLists();
             return;
         }
 
@@ -310,7 +348,7 @@ async function handleAuth() {
         clearAuth();
         checkLoginState();
         await loadCloudData();
-        renderList();
+        renderLists();
     } catch (error) {
         console.error('Přihlášení k Supabase selhalo:', error);
         alert(`Přihlášení se nepodařilo: ${error.message}`);
@@ -361,7 +399,7 @@ async function addItem() {
         cIn.value = '1';
         nIn.focus();
         await loadCloudData();
-        renderList();
+        renderLists();
     } catch (error) {
         console.error('Přidání položky selhalo:', error);
         alert(`Položku se nepodařilo přidat: ${error.message}`);
@@ -392,7 +430,7 @@ async function markAsBought(id) {
             }
         });
         await loadCloudData();
-        renderList();
+        renderLists();
     } catch (error) {
         console.error('Změna stavu položky selhalo:', error);
         alert(`Stav položky se nepodařilo změnit: ${error.message}`);
@@ -415,7 +453,7 @@ async function markAsDeleted(id) {
             }
         });
         await loadCloudData();
-        renderList();
+        renderLists();
     } catch (error) {
         console.error('Odebrání položky selhalo:', error);
         alert(`Položku se nepodařilo upravit: ${error.message}`);
@@ -427,7 +465,7 @@ async function clearAllArchive() {
     try {
         await supabaseRequest('/rest/v1/family_shopping_list?status=neq.active', { method: 'DELETE' });
         await loadCloudData();
-        renderList();
+        renderLists();
     } catch (error) {
         console.error('Mazání vyřízených položek selhalo:', error);
         alert(`Vyřízené položky se nepodařilo smazat: ${error.message}`);
@@ -461,15 +499,137 @@ function renderList() {
     clearEl.style.display = Object.values(appData.shoppingItems).some(i => i.status !== 'active') ? 'block' : 'none';
 }
 
+async function addChore() {
+    const input = document.getElementById('chore-input');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+        await supabaseRequest('/rest/v1/family_household_chores', {
+            method: 'POST',
+            body: {
+                name,
+                status: 'active',
+                added_by: currentUser,
+                added_at: getTime()
+            }
+        });
+        input.value = '';
+        input.focus();
+        await loadCloudData();
+        renderLists();
+    } catch (error) {
+        console.error('Přidání domácí práce selhalo:', error);
+        alert(`Domácí práci se nepodařilo přidat: ${error.message}`);
+    }
+}
+
+async function toggleChore(id) {
+    const chore = appData.chores[id];
+    if (!chore) return;
+    const restore = chore.status === 'done' || chore.status === 'cancelled';
+    try {
+        await supabaseRequest(`/rest/v1/family_household_chores?id=eq.${id}`, {
+            method: 'PATCH',
+            body: {
+                status: restore ? 'active' : 'done',
+                action_by: restore ? null : currentUser,
+                action_at: restore ? null : getTime()
+            }
+        });
+        await loadCloudData();
+        renderLists();
+    } catch (error) {
+        console.error('Změna stavu domácí práce selhala:', error);
+        alert(`Stav domácí práce se nepodařilo změnit: ${error.message}`);
+    }
+}
+
+async function cancelChore(id) {
+    const chore = appData.chores[id];
+    if (!chore || chore.status !== 'active') return;
+    try {
+        await supabaseRequest(`/rest/v1/family_household_chores?id=eq.${id}`, {
+            method: 'PATCH',
+            body: {
+                status: 'cancelled',
+                action_by: currentUser,
+                action_at: getTime()
+            }
+        });
+        await loadCloudData();
+        renderLists();
+    } catch (error) {
+        console.error('Zrušení domácí práce selhalo:', error);
+        alert(`Domácí práci se nepodařilo zrušit: ${error.message}`);
+    }
+}
+
+async function clearCompletedChores() {
+    if (!confirm('Trvale smazat všechny hotové a zrušené práce?')) return;
+    try {
+        await supabaseRequest('/rest/v1/family_household_chores?status=in.(done,cancelled)', { method: 'DELETE' });
+        await loadCloudData();
+        renderLists();
+    } catch (error) {
+        console.error('Mazání vyřízených prací selhalo:', error);
+        alert(`Vyřízené práce se nepodařilo smazat: ${error.message}`);
+    }
+}
+
+function renderChores() {
+    const listEl = document.getElementById('chore-list');
+    const clearEl = document.getElementById('clear-chores-container');
+    listEl.innerHTML = '';
+    const chores = Object.values(appData.chores).sort((a, b) => {
+        const statusOrder = { active: 1, done: 2, cancelled: 3 };
+        return statusOrder[a.status] - statusOrder[b.status];
+    });
+    chores.forEach(chore => {
+        const li = document.createElement('li');
+        li.className = `shopping-item ${chore.status}`;
+        let meta = `✍️ ${escapeHtml(chore.added_by)} (${escapeHtml(chore.added_at)})`;
+        if (chore.status === 'done') {
+            meta += `<br>✅ Hotovo: ${escapeHtml(chore.action_by)} (${escapeHtml(chore.action_at)})`;
+        } else if (chore.status === 'cancelled') {
+            meta += `<br>❌ Zrušil: ${escapeHtml(chore.action_by)} (${escapeHtml(chore.action_at)})`;
+        }
+        const button = chore.status === 'done'
+            ? `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Vrátit úkol mezi nehotové">↩️ Vrátit</button>`
+            : chore.status === 'cancelled'
+                ? `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Obnovit zrušený úkol">↩️ Obnovit</button>`
+                : `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Označit úkol jako hotový">✅ Hotovo</button><button class="action-btn" onclick="cancelChore(${Number(chore.id)})" aria-label="Zrušit úkol">🗑️ Zrušit</button>`;
+        li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${escapeHtml(chore.name)}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${button}</div>`;
+        listEl.appendChild(li);
+    });
+    clearEl.style.display = chores.some(chore => chore.status !== 'active') ? 'block' : 'none';
+}
+
+function renderLists() {
+    renderList();
+    renderChores();
+}
+
 document.getElementById('item-input').addEventListener('keypress', function (e) {
     if (e.key === 'Enter') addItem();
 });
 
-document.querySelectorAll('.quick-pick-btn').forEach(button => {
+document.getElementById('chore-input').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') addChore();
+});
+
+document.querySelectorAll('.quick-pick-btn[data-item]').forEach(button => {
     button.addEventListener('click', () => {
         const itemInput = document.getElementById('item-input');
         itemInput.value = button.dataset.item;
         itemInput.focus();
+    });
+});
+
+document.querySelectorAll('.chore-pick-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const choreInput = document.getElementById('chore-input');
+        choreInput.value = button.dataset.chore;
+        choreInput.focus();
     });
 });
 </script>
