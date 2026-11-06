@@ -461,7 +461,6 @@ async function markAsDeleted(id) {
 }
 
 async function clearAllArchive() {
-    if (!confirm('Trvale smazat?')) return;
     try {
         await supabaseRequest('/rest/v1/family_shopping_list?status=neq.active', { method: 'DELETE' });
         await loadCloudData();
@@ -565,7 +564,6 @@ async function cancelChore(id) {
 }
 
 async function clearCompletedChores() {
-    if (!confirm('Trvale smazat všechny hotové a zrušené práce?')) return;
     try {
         await supabaseRequest('/rest/v1/family_household_chores?status=in.(done,cancelled)', { method: 'DELETE' });
         await loadCloudData();
@@ -594,10 +592,10 @@ function renderChores() {
             meta += `<br>❌ Zrušil: ${escapeHtml(chore.action_by)} (${escapeHtml(chore.action_at)})`;
         }
         const button = chore.status === 'done'
-            ? `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Vrátit úkol mezi nehotové">↩️ Vrátit</button>`
+            ? `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Vrátit úkol mezi nehotové">↩️</button>`
             : chore.status === 'cancelled'
-                ? `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Obnovit zrušený úkol">↩️ Obnovit</button>`
-                : `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Označit úkol jako hotový">✅ Hotovo</button><button class="action-btn" onclick="cancelChore(${Number(chore.id)})" aria-label="Zrušit úkol">🗑️ Zrušit</button>`;
+                ? `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Obnovit zrušený úkol">↩️</button>`
+                : `<button class="action-btn" onclick="toggleChore(${Number(chore.id)})" aria-label="Označit úkol jako hotový">✅</button><button class="action-btn" onclick="cancelChore(${Number(chore.id)})" aria-label="Zrušit úkol">🗑️</button>`;
         li.innerHTML = `<div class="item-info"><div class="item-top-row"><span class="item-name">${escapeHtml(chore.name)}</span></div><div class="item-meta">${meta}</div></div><div class="action-btns">${button}</div>`;
         listEl.appendChild(li);
     });
